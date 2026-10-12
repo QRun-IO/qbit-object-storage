@@ -156,6 +156,10 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
       {
          output.add(join);
       }
+      for(QWidgetMetaData widget : ObjectStorageTables.childListWidgets())
+      {
+         output.add(widget);
+      }
       List<QTableMetaData> tables = new ArrayList<>();
       for(QTableMetaData table : ObjectStorageTables.tables(qBitConfig))
       {

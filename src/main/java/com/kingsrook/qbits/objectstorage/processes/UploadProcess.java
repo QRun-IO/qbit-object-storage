@@ -312,14 +312,14 @@ public final class UploadProcess
       {
          if(destination != null && destination.error() != null)
          {
-            lines.add(new ProcessSummaryLine(Status.ERROR, destination.error()));
+            lines.add(EtlSupport.text(Status.ERROR, destination.error()));
             return;
          }
          will.addSelfToListIfAnyCount(lines);
          if(described && destination != null)
          {
             StorageBucketConfig config = ActionSupport.config(destination.alias());
-            lines.add(new ProcessSummaryLine(Status.INFO, "Destination: " + destination.alias() + "/" + destination.prefix() + ". Each file may be up to " + ActionSupport.bytes(config.getMaxUploadBytes())
+            lines.add(EtlSupport.text(Status.INFO, "Destination: " + destination.alias() + "/" + destination.prefix() + ". Each file may be up to " + ActionSupport.bytes(config.getMaxUploadBytes())
                + ". The header policy sets the new objects' headers."));
          }
          overwrites.addSelfToListIfAnyCount(lines);
@@ -454,7 +454,7 @@ public final class UploadProcess
          uploaded.addSelfToListIfAnyCount(lines);
          if(bytes > 0)
          {
-            lines.add(new ProcessSummaryLine(Status.INFO, ActionSupport.bytes(bytes) + " uploaded"));
+            lines.add(EtlSupport.text(Status.INFO, ActionSupport.bytes(bytes) + " uploaded"));
          }
          if(getTransformStep() instanceof UploadTransform transform)
          {

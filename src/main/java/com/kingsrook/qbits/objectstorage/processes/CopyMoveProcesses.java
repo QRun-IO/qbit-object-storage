@@ -310,10 +310,10 @@ public final class CopyMoveProcesses
          will.addSelfToListIfAnyCount(lines);
          if(will.getCount() != null && will.getCount() > 0)
          {
-            lines.add(new ProcessSummaryLine(Status.INFO, ActionSupport.bytes(totalBytes) + " in total"));
+            lines.add(EtlSupport.text(Status.INFO, ActionSupport.bytes(totalBytes) + " in total"));
             if(isMove())
             {
-               lines.add(new ProcessSummaryLine(Status.INFO, "A move is a copy followed by a delete, not one atomic step. If the delete fails, the object exists in both places."));
+               lines.add(EtlSupport.text(Status.INFO, "A move is a copy followed by a delete, not one atomic step. If the delete fails, the object exists in both places."));
             }
          }
          overwrites.addSelfToListIfAnyCount(lines);

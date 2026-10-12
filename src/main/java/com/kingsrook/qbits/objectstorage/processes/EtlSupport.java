@@ -99,6 +99,19 @@ public final class EtlSupport
 
 
    /*******************************************************************************
+    ** A summary line that is plain text with no count in front of it (the standard
+    ** line starts at a count of 0, which the screen would show as "0 ...").
+    *******************************************************************************/
+   public static ProcessSummaryLine text(Status status, String message)
+   {
+      ProcessSummaryLine line = new ProcessSummaryLine(status, message);
+      line.setCount(null);
+      return (line);
+   }
+
+
+
+   /*******************************************************************************
     ** Record the permission a process needs.
     *******************************************************************************/
    public static void permission(String processName, String permission)

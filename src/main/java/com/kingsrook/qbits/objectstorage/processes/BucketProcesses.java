@@ -233,7 +233,7 @@ public final class BucketProcesses
          if(ok)
          {
             int headed = ObjectIndex.headBacklog(alias, ObjectStorageRuntime.getConfig().getHeadBacklogPerRun());
-            results.add(new ProcessSummaryLine(Status.INFO, alias + ": headers read for " + headed + " objects"));
+            results.add(EtlSupport.text(Status.INFO, alias + ": headers read for " + headed + " objects"));
             if(ReferenceScan.applies(ActionSupport.config(alias)))
             {
                ReferenceScan.Result r = ReferenceScan.run(alias);
@@ -286,7 +286,7 @@ public final class BucketProcesses
       protected void addLines(ArrayList<ProcessSummaryLineInterface> lines)
       {
          will.addSelfToListIfAnyCount(lines);
-         lines.add(new ProcessSummaryLine(Status.INFO, "Buckets are created and configured in infrastructure-as-code. This only observes; it changes nothing."));
+         lines.add(EtlSupport.text(Status.INFO, "Buckets are created and configured in infrastructure-as-code. This only observes; it changes nothing."));
       }
    }
 
@@ -441,11 +441,11 @@ public final class BucketProcesses
          Db.update(ObjectStorageTables.BUCKET, List.of(new QRecord().withValue("id", record.getValue("id")).withValue("versioningState", o.versioning().length() > 30 ? o.versioning().substring(0, 30) : o.versioning())
             .withValue("lifecycleSummary", o.lifecycle()).withValue("policySummary", o.policy()).withValue("corsSummary", o.cors())
             .withValue("configDriftNote", drift.isEmpty() ? null : String.join("; ", drift))));
-         results.add(new ProcessSummaryLine(Status.INFO, alias + ": versioning " + o.versioning() + ", lifecycle " + o.lifecycle() + ", policy " + o.policy() + ", CORS " + o.cors()
+         results.add(EtlSupport.text(Status.INFO, alias + ": versioning " + o.versioning() + ", lifecycle " + o.lifecycle() + ", policy " + o.policy() + ", CORS " + o.cors()
             + " (managed by " + bucket.getManagedBy() + ")"));
          for(String d : drift)
          {
-            results.add(new ProcessSummaryLine(Status.WARNING, alias + ": drift - " + d));
+            results.add(EtlSupport.text(Status.WARNING, alias + ": drift - " + d));
          }
          output.getRecords().add(record);
       }
@@ -523,7 +523,7 @@ public final class BucketProcesses
          notIndexed.addSelfToListIfAnyCount(lines);
          if(change.getCount() != null && change.getCount() > 0)
          {
-            lines.add(new ProcessSummaryLine(Status.INFO, "Rewriting headers copies each object onto itself, which changes Last-Modified and can change the ETag."));
+            lines.add(EtlSupport.text(Status.INFO, "Rewriting headers copies each object onto itself, which changes Last-Modified and can change the ETag."));
          }
       }
 
@@ -653,11 +653,11 @@ public final class BucketProcesses
       {
          if(keyError != null)
          {
-            lines.add(new ProcessSummaryLine(Status.ERROR, "The link cannot be created: " + keyError));
+            lines.add(EtlSupport.text(Status.ERROR, "The link cannot be created: " + keyError));
             return;
          }
          will.addSelfToListIfAnyCount(lines);
-         lines.add(new ProcessSummaryLine(Status.INFO, "A presigned PUT cannot limit how large the upload is, only pin one exact size and type. The link is a bearer token: share it only with the intended uploader."));
+         lines.add(EtlSupport.text(Status.INFO, "A presigned PUT cannot limit how large the upload is, only pin one exact size and type. The link is a bearer token: share it only with the intended uploader."));
       }
    }
 
@@ -690,7 +690,7 @@ public final class BucketProcesses
          }
          URL url = ActionSupport.storage(alias).presignPut(request);
          int minutes = (int) Math.min(ActionSupport.config(alias).getMaxPresignPutSeconds() / 60, 15);
-         ProcessSummaryLine line = new ProcessSummaryLine(Status.OK, "Upload link for " + alias + "/" + request.getKey() + " (expires in about " + minutes + " minutes; shown once)");
+         ProcessSummaryLine line = EtlSupport.text(Status.OK, "Upload link for " + alias + "/" + request.getKey() + " (expires in about " + minutes + " minutes; shown once)");
          line.setBulletsOfText(new ArrayList<>(List.of(url.toString())));
          results.add(line);
          output.getRecords().add(record);

@@ -219,11 +219,11 @@ public final class TestConnectionProcess
                {
                   text.append(" (").append(note).append(")");
                }
-               lines.add(new ProcessSummaryLine(Status.INFO, text.toString()));
+               lines.add(EtlSupport.text(Status.INFO, text.toString()));
             }
             for(String problem : report.getProblems())
             {
-               lines.add(new ProcessSummaryLine(Status.ERROR, problem));
+               lines.add(EtlSupport.text(Status.ERROR, problem));
             }
             if(report.getClockSkewSeconds() != null)
             {

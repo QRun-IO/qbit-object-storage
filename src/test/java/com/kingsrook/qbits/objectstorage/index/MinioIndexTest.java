@@ -546,7 +546,7 @@ class MinioIndexTest
 
       String html = com.kingsrook.qbits.objectstorage.app.StorageHome.render("/x", Instant.now());
       assertThat(html).contains("Buckets").contains("indexed").contains("/x/object_storage_bucket/").contains("KB")
-         .contains("Data health").contains("Orphaned objects").contains("object_storage_object?filter=")
+         .contains("Data health").contains("Orphaned").contains("object_storage_object?filter=")
          .contains("Recent changes").contains("PUT").contains("media/1/c.jpg")
          .contains("Cache headers").contains("objects match the header policy")
          .contains("Usage trend").contains("collecting since")

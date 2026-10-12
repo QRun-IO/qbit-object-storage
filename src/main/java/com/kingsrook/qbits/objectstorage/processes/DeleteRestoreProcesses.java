@@ -188,7 +188,7 @@ public final class DeleteRestoreProcesses
          already.addSelfToListIfAnyCount(lines);
          if(wasabi)
          {
-            lines.add(new ProcessSummaryLine(Status.INFO, "Wasabi bills deleted objects for their minimum storage duration, so deleting does not reduce the bill at once."));
+            lines.add(EtlSupport.text(Status.INFO, "Wasabi bills deleted objects for their minimum storage duration, so deleting does not reduce the bill at once."));
          }
       }
 

@@ -27,7 +27,9 @@ import java.util.Map;
 import com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig;
 import com.kingsrook.qbits.objectstorage.permissions.ObjectStoragePermissionChecker;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
+import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.ChildRecordListRenderer;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
+import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
@@ -225,6 +227,7 @@ public final class ObjectStorageTables
          {
             if(table.getName().equals(relation[0]))
             {
+               table.withSection(new QFieldSection(joinName(relation), new QIcon("list"), Tier.T2).withLabel(relation[3]).withWidgetName(joinName(relation)));
                table.withExposedJoin(new ExposedJoin().withLabel(relation[3]).withJoinTable(relation[1]).withJoinPath(List.of(joinName(relation))));
             }
          }
@@ -346,6 +349,25 @@ public final class ObjectStorageTables
             .withJoinOn(new JoinOn("id", relation[2])));
       }
       return (joins);
+   }
+
+
+
+   /*******************************************************************************
+    ** The child record lists shown on a parent's record screen: a bucket shows its
+    ** folders, objects, references, usage, operations and rules; a folder and an
+    ** object show what is beneath or about them.
+    *******************************************************************************/
+   public static List<QWidgetMetaData> childListWidgets()
+   {
+      List<QWidgetMetaData> widgets = new ArrayList<>();
+      for(String[] relation : RELATIONS)
+      {
+         QJoinMetaData join = new QJoinMetaData().withName(joinName(relation)).withLeftTable(relation[0]).withRightTable(relation[1]).withType(JoinType.ONE_TO_MANY)
+            .withJoinOn(new JoinOn("id", relation[2]));
+         widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(join).withName(joinName(relation)).withLabel(relation[3]).withMaxRows(10).getWidgetMetaData());
+      }
+      return (widgets);
    }
 
 

@@ -223,7 +223,7 @@ public final class FolderProcesses
       {
          if(error != null)
          {
-            lines.add(new ProcessSummaryLine(Status.ERROR, error));
+            lines.add(EtlSupport.text(Status.ERROR, error));
          }
          super.addLines(lines);
       }

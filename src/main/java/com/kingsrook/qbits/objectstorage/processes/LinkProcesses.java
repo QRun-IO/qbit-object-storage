@@ -116,7 +116,7 @@ public final class LinkProcesses
          will.addSelfToListIfAnyCount(lines);
          deleted.addSelfToListIfAnyCount(lines);
          tooMany.addSelfToListIfAnyCount(lines);
-         lines.add(new ProcessSummaryLine(Status.INFO, "Each link works for about five minutes and is shown once on the next screen. Anyone who has a link can download that object until it expires."));
+         lines.add(EtlSupport.text(Status.INFO, "Each link works for about five minutes and is shown once on the next screen. Anyone who has a link can download that object until it expires."));
       }
 
 
@@ -152,7 +152,7 @@ public final class LinkProcesses
          StorageBucketConfig config = ActionSupport.config(alias);
          Duration            ttl    = Duration.ofSeconds(Math.min(300, config.getMaxPresignGetSeconds()));
          URL url = ActionSupport.storage(alias).presignGet(PresignGet.of(record.getValueString("objectKey")).ttl(ttl).downloadAs(record.getValueString("name")));
-         ProcessSummaryLine line = new ProcessSummaryLine(Status.OK, "Download link for " + alias + "/" + record.getValueString("objectKey") + " (expires in " + ttl.toMinutes() + " minutes; shown once)");
+         ProcessSummaryLine line = EtlSupport.text(Status.OK, "Download link for " + alias + "/" + record.getValueString("objectKey") + " (expires in " + ttl.toMinutes() + " minutes; shown once)");
          line.setBulletsOfText(new ArrayList<>(List.of(url.toString())));
          links.add(line);
          output.getRecords().add(record);

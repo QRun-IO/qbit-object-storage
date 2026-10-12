@@ -355,7 +355,7 @@ public final class ObjectWriteProcesses
          change.addSelfToListIfAnyCount(lines);
          if(change.getCount() != null && change.getCount() > 0)
          {
-            lines.add(new ProcessSummaryLine(Status.INFO, "Rewriting headers copies each object onto itself, which changes Last-Modified and can change the ETag."));
+            lines.add(EtlSupport.text(Status.INFO, "Rewriting headers copies each object onto itself, which changes Last-Modified and can change the ETag."));
          }
          correct.addSelfToListIfAnyCount(lines);
          unreadable.addSelfToListIfAnyCount(lines);
@@ -550,18 +550,18 @@ public final class ObjectWriteProcesses
       {
          if(inputError != null)
          {
-            lines.add(new ProcessSummaryLine(Status.ERROR, "The metadata is not valid: " + inputError));
+            lines.add(EtlSupport.text(Status.ERROR, "The metadata is not valid: " + inputError));
             return;
          }
          if(nothing)
          {
-            lines.add(new ProcessSummaryLine(Status.ERROR, "Nothing to change: fill in at least one header or metadata value."));
+            lines.add(EtlSupport.text(Status.ERROR, "Nothing to change: fill in at least one header or metadata value."));
             return;
          }
          change.addSelfToListIfAnyCount(lines);
          if(change.getCount() != null && change.getCount() > 0)
          {
-            lines.add(new ProcessSummaryLine(Status.INFO, "Changing headers copies each object onto itself, which changes Last-Modified and can change the ETag."));
+            lines.add(EtlSupport.text(Status.INFO, "Changing headers copies each object onto itself, which changes Last-Modified and can change the ETag."));
          }
          same.addSelfToListIfAnyCount(lines);
          unreadable.addSelfToListIfAnyCount(lines);
@@ -706,7 +706,7 @@ public final class ObjectWriteProcesses
       {
          if(inputError != null)
          {
-            lines.add(new ProcessSummaryLine(Status.ERROR, "The tags are not valid: " + inputError));
+            lines.add(EtlSupport.text(Status.ERROR, "The tags are not valid: " + inputError));
             return;
          }
          will.addSelfToListIfAnyCount(lines);
