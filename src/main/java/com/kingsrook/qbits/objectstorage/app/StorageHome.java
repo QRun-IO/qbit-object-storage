@@ -57,14 +57,17 @@ public final class StorageHome
 
    private static final String WRAP   = "display:flex;flex-direction:column;gap:1.25rem;width:100%;";
    private static final String CARD   = "border:1px solid rgba(127,127,127,.3);border-radius:8px;padding:1rem;min-width:0;overflow-wrap:anywhere;";
-   private static final String TABLE  = "width:100%;border-collapse:collapse;font-size:.9rem;table-layout:auto;";
-   private static final String CELL   = "text-align:left;padding:.35rem .5rem;border-bottom:1px solid rgba(127,127,127,.2);vertical-align:top;overflow-wrap:anywhere;";
+   private static final String GRID   = "display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,19rem),1fr));gap:.75rem;";
+   private static final String ITEM   = "border:1px solid rgba(127,127,127,.25);border-radius:6px;padding:.7rem .85rem;min-width:0;overflow-wrap:anywhere;";
+   private static final String PAIRS  = "display:grid;grid-template-columns:minmax(6.5rem,auto) minmax(0,1fr);gap:.2rem .75rem;margin:.5rem 0 0;font-size:.88rem;";
    private static final String CHIP   = "display:inline-block;border:1px solid rgba(127,127,127,.45);border-radius:999px;padding:0 .5rem;margin:0 .25rem .25rem 0;font-size:.78rem;";
    private static final String MUTED  = "opacity:.75;";
+   private static final String ROW    = "padding:.5rem 0;border-bottom:1px solid rgba(127,127,127,.2);min-width:0;overflow-wrap:anywhere;";
+   private static final String HEAD   = "display:flex;justify-content:space-between;gap:.5rem;align-items:baseline;";
 
    /** Important capabilities whose absence or partial support is worth a chip. */
    private static final Map<String, String> CHIP_NAMES = Map.of("VERSIONING", "versioning", "LIFECYCLE", "lifecycle", "OBJECT_LOCK", "object lock",
-      "BUCKET_POLICY", "bucket policy", "OBJECT_TAGGING", "tagging", "PRESIGNED_POST", "presigned POST", "CONDITIONAL_WRITE", "conditional writes");
+      "OBJECT_TAGGING", "tagging", "PRESIGNED_POST", "presigned POST", "CONDITIONAL_WRITE", "conditional writes");
 
 
 
@@ -114,7 +117,8 @@ public final class StorageHome
 
 
    /*******************************************************************************
-    ** 1. Buckets: one row per bucket, linking to its record.
+    ** 1. Buckets: one card per bucket, linking to its record. Cards flow into as
+    ** many columns as fit, so the section reads at any width without scrolling.
     *******************************************************************************/
    private static void bucketsSection(StringBuilder html, List<QRecord> buckets, List<QRecord> connections, List<QRecord> caps, String prefix)
    {
@@ -127,30 +131,28 @@ public final class StorageHome
       }
       Map<Object, String> connectionNames = new LinkedHashMap<>();
       connections.forEach(c -> connectionNames.put(c.getValue("id"), c.getValueString("name")));
-      html.append("<table style=\"").append(TABLE).append("\"><thead><tr>");
-      for(String h : new String[] { "Bucket", "Connection", "Role", "Objects", "Size", "Last scan", "Versioning", "Notes" })
-      {
-         html.append("<th style=\"").append(CELL).append("\">").append(h).append("</th>");
-      }
-      html.append("</tr></thead><tbody>");
+      html.append("<div style=\"").append(GRID).append("\">");
       for(QRecord bucket : buckets)
       {
          boolean indexed = Boolean.TRUE.equals(bucket.getValueBoolean("indexed"));
-         html.append("<tr>");
-         cell(html, link(prefix, ObjectStorageTables.BUCKET, bucket.getValue("id"), bucket.getValueString("alias")));
-         cell(html, esc(connectionNames.getOrDefault(bucket.getValue("connectionId"), "")));
-         cell(html, esc(bucket.getValueString("role")));
-         cell(html, indexed ? number(bucket.getValueLong("objectCount")) : "<span style=\"" + MUTED + "\">not indexed</span>");
-         cell(html, indexed ? bytes(bucket.getValueLong("totalBytes")) : "");
-         cell(html, bucket.getValueInstant("lastScanDate") == null ? "<span style=\"" + MUTED + "\">never</span>" : WHEN.format(bucket.getValueInstant("lastScanDate")));
-         cell(html, esc(bucket.getValueString("versioningState") == null ? "unknown" : bucket.getValueString("versioningState")));
+         html.append("<div style=\"").append(ITEM).append("\"><div style=\"").append(HEAD).append("\"><strong>")
+            .append(link(prefix, ObjectStorageTables.BUCKET, bucket.getValue("id"), bucket.getValueString("alias"))).append("</strong><span style=\"").append(MUTED).append("font-size:.8rem;\">")
+            .append(esc(bucket.getValueString("role"))).append("</span></div><dl style=\"").append(PAIRS).append("\">");
+         pair(html, "Connection", esc(connectionNames.getOrDefault(bucket.getValue("connectionId"), "")));
+         pair(html, "Objects", indexed ? number(bucket.getValueLong("objectCount")) : "<span style=\"" + MUTED + "\">not indexed</span>");
+         pair(html, "Size", indexed ? bytes(bucket.getValueLong("totalBytes")) : "<span style=\"" + MUTED + "\">not indexed</span>");
+         pair(html, "Last scan", bucket.getValueInstant("lastScanDate") == null ? "<span style=\"" + MUTED + "\">never</span>" : WHEN.format(bucket.getValueInstant("lastScanDate")));
+         pair(html, "Versioning", esc(bucket.getValueString("versioningState") == null ? "not checked yet" : bucket.getValueString("versioningState")));
+         html.append("</dl>");
          StringBuilder chips = new StringBuilder();
          for(QRecord cap : caps)
          {
-            if(cap.getValueInteger("bucketId") != null && cap.getValueInteger("bucketId").equals(bucket.getValueInteger("id")) && CHIP_NAMES.containsKey(cap.getValueString("capability")))
+            String  capability = cap.getValueString("capability");
+            boolean relevant   = CHIP_NAMES.containsKey(capability) && (!"OBJECT_LOCK".equals(capability) || "BACKUP".equals(bucket.getValueString("role")));
+            if(relevant && cap.getValueInteger("bucketId") != null && cap.getValueInteger("bucketId").equals(bucket.getValueInteger("id")))
             {
                String status = cap.getValueString("status");
-               String name   = CHIP_NAMES.get(cap.getValueString("capability"));
+               String name   = CHIP_NAMES.get(capability);
                if("UNSUPPORTED".equals(status))
                {
                   chips.append("<span style=\"").append(CHIP).append("\">no ").append(name).append("</span>");
@@ -165,10 +167,17 @@ public final class StorageHome
                }
             }
          }
-         cell(html, chips.length() == 0 ? "<span style=\"" + MUTED + "\">none noted</span>" : chips.toString());
-         html.append("</tr>");
+         if(bucket.getValueString("configDriftNote") != null)
+         {
+            chips.append("<span style=\"").append(CHIP).append("\">config drift</span>");
+         }
+         if(chips.length() > 0)
+         {
+            html.append("<div style=\"margin-top:.55rem;\">").append(chips).append("</div>");
+         }
+         html.append("</div>");
       }
-      html.append("</tbody></table>");
+      html.append("</div>");
       close(html);
    }
 
@@ -187,12 +196,7 @@ public final class StorageHome
          close(html);
          return;
       }
-      html.append("<table style=\"").append(TABLE).append("\"><thead><tr>");
-      for(String h : new String[] { "Bucket", "Orphaned objects", "Orphaned size", "Missing objects", "Last reference scan" })
-      {
-         html.append("<th style=\"").append(CELL).append("\">").append(h).append("</th>");
-      }
-      html.append("</tr></thead><tbody>");
+      html.append("<div style=\"").append(GRID).append("\">");
       for(QRecord bucket : tracked)
       {
          boolean scanned = bucket.getValueInstant("lastReferenceScanDate") != null;
@@ -200,15 +204,15 @@ public final class StorageHome
             + "{\"fieldName\":\"referenceCount\",\"operator\":\"EQUALS\",\"values\":[0]}]");
          String  missingFilter = filterLink(prefix, ObjectStorageTables.OBJECT_REFERENCE, "[{\"fieldName\":\"bucketId\",\"operator\":\"EQUALS\",\"values\":[" + bucket.getValueInteger("id") + "]},"
             + "{\"fieldName\":\"missing\",\"operator\":\"EQUALS\",\"values\":[true]}]");
-         html.append("<tr>");
-         cell(html, link(prefix, ObjectStorageTables.BUCKET, bucket.getValue("id"), bucket.getValueString("alias")));
-         cell(html, scanned ? "<a href=\"" + esc(orphanFilter) + "\">" + number(bucket.getValueLong("orphanedCount")) + "</a>" : "<span style=\"" + MUTED + "\">not scanned yet</span>");
-         cell(html, scanned ? bytes(bucket.getValueLong("orphanedBytes")) : "");
-         cell(html, scanned ? "<a href=\"" + esc(missingFilter) + "\">" + number(bucket.getValueLong("missingCount")) + "</a>" : "");
-         cell(html, scanned ? WHEN.format(bucket.getValueInstant("lastReferenceScanDate")) : "never");
-         html.append("</tr>");
+         html.append("<div style=\"").append(ITEM).append("\"><strong>").append(link(prefix, ObjectStorageTables.BUCKET, bucket.getValue("id"), bucket.getValueString("alias"))).append("</strong><dl style=\"")
+            .append(PAIRS).append("\">");
+         pair(html, "Orphaned", scanned ? "<a href=\"" + esc(orphanFilter) + "\">" + number(bucket.getValueLong("orphanedCount")) + " objects</a> (" + bytes(bucket.getValueLong("orphanedBytes")) + ")"
+            : "<span style=\"" + MUTED + "\">not scanned yet</span>");
+         pair(html, "Missing", scanned ? "<a href=\"" + esc(missingFilter) + "\">" + number(bucket.getValueLong("missingCount")) + " objects</a>" : "");
+         pair(html, "Last scan", scanned ? WHEN.format(bucket.getValueInstant("lastReferenceScanDate")) : "never");
+         html.append("</dl></div>");
       }
-      html.append("</tbody></table>");
+      html.append("</div>");
       close(html);
    }
 
@@ -226,23 +230,15 @@ public final class StorageHome
          close(html);
          return;
       }
-      html.append("<table style=\"").append(TABLE).append("\"><thead><tr>");
-      for(String h : new String[] { "When", "Who", "What", "Where", "Result" })
-      {
-         html.append("<th style=\"").append(CELL).append("\">").append(h).append("</th>");
-      }
-      html.append("</tr></thead><tbody>");
       for(QRecord op : operations)
       {
-         html.append("<tr>");
-         cell(html, op.getValueInstant("occurredAt") == null ? "" : WHEN.format(op.getValueInstant("occurredAt")));
-         cell(html, esc(op.getValueString("actor")));
-         cell(html, link(prefix, ObjectStorageTables.OPERATION, op.getValue("id"), String.valueOf(op.getValueString("action"))));
-         cell(html, esc(op.getValueString("bucketAlias") + "/" + (op.getValueString("objectKey") == null ? "" : op.getValueString("objectKey"))));
-         cell(html, esc(op.getValueString("result")) + (op.getValueString("errorMessage") == null ? "" : ": " + esc(op.getValueString("errorMessage"))));
-         html.append("</tr>");
+         html.append("<div style=\"").append(ROW).append("\"><div><strong>").append(link(prefix, ObjectStorageTables.OPERATION, op.getValue("id"), String.valueOf(op.getValueString("action"))))
+            .append("</strong> ").append(esc(op.getValueString("bucketAlias") + "/" + (op.getValueString("objectKey") == null ? "" : op.getValueString("objectKey")))).append("</div><div style=\"")
+            .append(MUTED).append("font-size:.85rem;\">").append(op.getValueInstant("occurredAt") == null ? "" : WHEN.format(op.getValueInstant("occurredAt"))).append(" &middot; ")
+            .append(esc(op.getValueString("actor"))).append(" &middot; ").append(esc(op.getValueString("result")))
+            .append(op.getValueString("errorMessage") == null ? "" : ": " + esc(op.getValueString("errorMessage"))).append("</div></div>");
       }
-      html.append("</tbody></table><p style=\"margin:.5rem 0 0;\"><a href=\"").append(esc(prefix + "/" + ObjectStorageTables.OPERATION)).append("\">See every operation</a></p>");
+      html.append("<p style=\"margin:.75rem 0 0;\"><a href=\"").append(esc(prefix + "/" + ObjectStorageTables.OPERATION)).append("\">See every operation</a></p>");
       close(html);
    }
 
@@ -261,32 +257,31 @@ public final class StorageHome
          close(html);
          return;
       }
-      html.append("<ul style=\"margin:0 0 .75rem;padding-left:1.25rem;font-size:.9rem;\">");
       for(QRecord bucket : indexed)
       {
          long total = bucket.getValueLong("objectCount") == null ? 0 : bucket.getValueLong("objectCount");
          long known = bucket.getValueLong("headersKnownCount") == null ? 0 : bucket.getValueLong("headersKnownCount");
          long match = bucket.getValueLong("headersMatchingPolicyCount") == null ? 0 : bucket.getValueLong("headersMatchingPolicyCount");
-         html.append("<li><strong>").append(esc(bucket.getValueString("alias"))).append("</strong>: ");
+         html.append("<div style=\"").append(ROW).append("\"><strong>").append(link(prefix, ObjectStorageTables.BUCKET, bucket.getValue("id"), bucket.getValueString("alias"))).append("</strong>: ");
          if(bucket.getValueInstant("lastScanDate") == null)
          {
             html.append("<span style=\"").append(MUTED).append("\">not scanned yet</span>");
          }
          else
          {
-            html.append(number((long) match)).append(" of ").append(number((long) total)).append(" objects match the header policy; headers known for ")
+            html.append(number(match)).append(" of ").append(number(total)).append(" objects match the header policy; headers known for ")
                .append(total == 0 ? 100 : Math.round(known * 100.0 / total)).append("%");
          }
-         html.append("</li>");
+         html.append("</div>");
       }
-      html.append("</ul><p style=\"margin:0;\">To fix mismatches, run <strong>Apply header policy</strong> on the objects or a bucket. Edge caching lives in the CDN app.</p>");
+      html.append("<p style=\"margin:.75rem 0 0;\">To fix mismatches, run <strong>Apply header policy</strong> on the objects or a bucket. Edge caching lives in the CDN app.</p>");
       close(html);
    }
 
 
 
    /*******************************************************************************
-    ** 5. Usage trend: bytes and objects per bucket over 30 days (snapshots).
+    ** 5. Usage trend: bytes and object count per bucket over 30 days (snapshots).
     *******************************************************************************/
    private static void usageSection(StringBuilder html, List<QRecord> buckets, List<QRecord> usage)
    {
@@ -296,13 +291,7 @@ public final class StorageHome
       {
          byBucket.computeIfAbsent(row.getValue("bucketId"), k -> new ArrayList<>()).add(row);
       }
-      boolean any = false;
-      StringBuilder body = new StringBuilder("<table style=\"" + TABLE + "\"><thead><tr>");
-      for(String h : new String[] { "Bucket", "Now", "30 days ago", "Change" })
-      {
-         body.append("<th style=\"").append(CELL).append("\">").append(h).append("</th>");
-      }
-      body.append("</tr></thead><tbody>");
+      StringBuilder trends     = new StringBuilder();
       StringBuilder collecting = new StringBuilder();
       for(QRecord bucket : buckets)
       {
@@ -311,32 +300,27 @@ public final class StorageHome
          {
             if(!rows.isEmpty())
             {
-               collecting.append("<li>").append(esc(bucket.getValueString("alias"))).append(": collecting since ").append(rows.get(0).getValueString("snapshotDate")).append("</li>");
+               collecting.append("<div style=\"").append(ROW).append("\"><strong>").append(esc(bucket.getValueString("alias"))).append("</strong>: collecting since ")
+                  .append(rows.get(0).getValueString("snapshotDate")).append("</div>");
             }
             continue;
          }
-         any = true;
          QRecord first = rows.get(0);
          QRecord last  = rows.get(rows.size() - 1);
          long delta = (last.getValueLong("totalBytes") == null ? 0 : last.getValueLong("totalBytes")) - (first.getValueLong("totalBytes") == null ? 0 : first.getValueLong("totalBytes"));
          long objs  = (last.getValueLong("objectCount") == null ? 0 : last.getValueLong("objectCount")) - (first.getValueLong("objectCount") == null ? 0 : first.getValueLong("objectCount"));
-         body.append("<tr>");
-         cell(body, esc(bucket.getValueString("alias")));
-         cell(body, number(last.getValueLong("objectCount")) + " objects, " + bytes(last.getValueLong("totalBytes")));
-         cell(body, number(first.getValueLong("objectCount")) + " objects, " + bytes(first.getValueLong("totalBytes")) + " (" + first.getValueString("snapshotDate") + ")");
-         cell(body, (objs >= 0 ? "+" : "") + objs + " objects, " + (delta >= 0 ? "+" : "-") + bytes(Math.abs(delta)));
-         body.append("</tr>");
+         trends.append("<div style=\"").append(ITEM).append("\"><strong>").append(esc(bucket.getValueString("alias"))).append("</strong><dl style=\"").append(PAIRS).append("\">");
+         pair(trends, "Now", number(last.getValueLong("objectCount")) + " objects, " + bytes(last.getValueLong("totalBytes")));
+         pair(trends, "Since " + first.getValueString("snapshotDate"), number(first.getValueLong("objectCount")) + " objects, " + bytes(first.getValueLong("totalBytes")));
+         pair(trends, "Change", (objs >= 0 ? "+" : "") + objs + " objects, " + (delta >= 0 ? "+" : "-") + bytes(Math.abs(delta)));
+         trends.append("</dl></div>");
       }
-      body.append("</tbody></table>");
-      if(any)
+      if(trends.length() > 0)
       {
-         html.append(body);
+         html.append("<div style=\"").append(GRID).append("\">").append(trends).append("</div>");
       }
-      if(collecting.length() > 0)
-      {
-         html.append("<ul style=\"margin:.5rem 0 0;padding-left:1.25rem;font-size:.9rem;\">").append(collecting).append("</ul>");
-      }
-      if(!any && collecting.length() == 0)
+      html.append(collecting);
+      if(trends.length() == 0 && collecting.length() == 0)
       {
          empty(html, "No usage snapshots yet. The nightly snapshot records bucket size and object count from the index; a trend appears after two days.");
       }
@@ -357,12 +341,7 @@ public final class StorageHome
          close(html);
          return;
       }
-      html.append("<table style=\"").append(TABLE).append("\"><thead><tr>");
-      for(String h : new String[] { "Connection", "Provider", "Last test", "Result", "Note" })
-      {
-         html.append("<th style=\"").append(CELL).append("\">").append(h).append("</th>");
-      }
-      html.append("</tr></thead><tbody>");
+      html.append("<div style=\"").append(GRID).append("\">");
       for(QRecord c : connections)
       {
          Instant tested = c.getValueInstant("lastTestedAt");
@@ -372,16 +351,29 @@ public final class StorageHome
          {
             nudge = (nudge.isEmpty() ? "" : nudge + " ") + c.getValueString("presignWarning");
          }
-         html.append("<tr>");
-         cell(html, link(prefix, ObjectStorageTables.CONNECTION, c.getValue("id"), c.getValueString("name")));
-         cell(html, esc(c.getValueString("providerType")));
-         cell(html, tested == null ? "never" : WHEN.format(tested));
-         cell(html, esc(c.getValueString("lastTestStatus") == null ? "" : c.getValueString("lastTestStatus")));
-         cell(html, esc(nudge));
-         html.append("</tr>");
+         html.append("<div style=\"").append(ITEM).append("\"><div style=\"").append(HEAD).append("\"><strong>")
+            .append(link(prefix, ObjectStorageTables.CONNECTION, c.getValue("id"), c.getValueString("name"))).append("</strong><span style=\"").append(MUTED).append("font-size:.8rem;\">")
+            .append(esc(c.getValueString("providerType"))).append("</span></div><dl style=\"").append(PAIRS).append("\">");
+         pair(html, "Last test", tested == null ? "never" : WHEN.format(tested));
+         pair(html, "Result", esc(c.getValueString("lastTestStatus") == null ? "" : c.getValueString("lastTestStatus")));
+         if(!nudge.isEmpty())
+         {
+            pair(html, "Note", esc(nudge));
+         }
+         html.append("</dl></div>");
       }
-      html.append("</tbody></table>");
+      html.append("</div>");
       close(html);
+   }
+
+
+
+   /*******************************************************************************
+    ** One label/value pair in a card.
+    *******************************************************************************/
+   private static void pair(StringBuilder html, String label, String valueHtml)
+   {
+      html.append("<dt style=\"").append(MUTED).append("\">").append(esc(label)).append("</dt><dd style=\"margin:0;min-width:0;\">").append(valueHtml).append("</dd>");
    }
 
 
@@ -412,16 +404,6 @@ public final class StorageHome
    private static void empty(StringBuilder html, String text)
    {
       html.append("<p style=\"margin:0;").append(MUTED).append("\">").append(esc(text)).append("</p>");
-   }
-
-
-
-   /*******************************************************************************
-    ** A table cell.
-    *******************************************************************************/
-   private static void cell(StringBuilder html, String content)
-   {
-      html.append("<td style=\"").append(CELL).append("\">").append(content).append("</td>");
    }
 
 

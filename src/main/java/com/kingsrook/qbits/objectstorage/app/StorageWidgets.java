@@ -67,7 +67,7 @@ public final class StorageWidgets
     *******************************************************************************/
    public static List<QWidgetMetaData> widgets()
    {
-      return (List.of(new QWidgetMetaData().withName(HOME_WIDGET).withLabel("Storage").withType(WidgetType.HTML.getType())
+      return (List.of(new QWidgetMetaData().withName(HOME_WIDGET).withLabel("Overview").withType(WidgetType.HTML.getType())
          .withCodeReference(new QCodeReference(HomeRenderer.class)).withGridColumns(12).withIsCard(false).withPermissionRules(ObjectStorageTables.permissionRules())));
    }
 
@@ -90,11 +90,14 @@ public final class StorageWidgets
             .withTables(List.of(ObjectStorageTables.OPERATION)))
          .withSection(new QAppSection().withName("rules").withLabel("Rules").withIcon(new QIcon("rule"))
             .withTables(List.of(ObjectStorageTables.HEADER_RULE, ObjectStorageTables.PROTECTION_RULE)));
-      for(QTableMetaData table : tables)
+      for(String navTable : ObjectStorageTables.NAV_TABLES)
       {
-         if(ObjectStorageTables.NAV_TABLES.contains(table.getName()))
+         for(QTableMetaData table : tables)
          {
-            app.withChild(table);
+            if(table.getName().equals(navTable))
+            {
+               app.withChild(table);
+            }
          }
       }
       return (app);

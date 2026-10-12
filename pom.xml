@@ -89,6 +89,13 @@
          <artifactId>apache-client</artifactId>
       </dependency>
 
+      <!-- only for the demo server in src/test (the Storage app in a browser); not shipped -->
+      <dependency>
+         <groupId>com.kingsrook.qqq</groupId>
+         <artifactId>qqq-middleware-javalin</artifactId>
+         <scope>test</scope>
+      </dependency>
+
       <dependency>
          <groupId>org.testcontainers</groupId>
          <artifactId>testcontainers</artifactId>

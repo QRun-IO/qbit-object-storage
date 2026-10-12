@@ -23,6 +23,7 @@ package com.kingsrook.qbits.objectstorage.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig;
 import com.kingsrook.qbits.objectstorage.permissions.ObjectStoragePermissionChecker;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
@@ -30,7 +31,6 @@ import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
-import com.kingsrook.qqq.backend.core.model.metadata.fields.QVirtualFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinOn;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinType;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
@@ -42,8 +42,12 @@ import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleVal
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSourceType;
 import com.kingsrook.qqq.backend.core.model.metadata.security.QSecurityKeyType;
 import com.kingsrook.qqq.backend.core.model.metadata.security.RecordSecurityLock;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.Capability;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.ExposedJoin;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.SectionFactory;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.Tier;
 
 
 /*******************************************************************************
@@ -211,6 +215,10 @@ public final class ObjectStorageTables
    {
       List<QTableMetaData> tables = new ArrayList<>(List.of(connection(config), connectionCapability(config), bucket(config), bucketCapability(config),
          folder(config), object(config), objectVersion(config), objectReference(config), headerRule(config), protectionRule(config), operation(config), usageDaily(config)));
+      for(QTableMetaData table : tables)
+      {
+         layout(table);
+      }
       for(String[] relation : RELATIONS)
       {
          for(QTableMetaData table : tables)
@@ -223,6 +231,106 @@ public final class ObjectStorageTables
       }
       return (tables);
    }
+
+
+
+   /** Record screen sections per table: "T1" identity, "T2:Label" detail groups, "T3" bookkeeping. The first name of each row is the section. */
+   private static final Map<String, String[][]> LAYOUTS = Map.ofEntries(
+      Map.entry(CONNECTION, new String[][] {
+         { "T1", "name", "providerType", "source", "lastTestedAt", "lastTestStatus" },
+         { "T2:Endpoint and signing", "endpoint", "presignEndpoint", "region", "addressingStyle", "checksumMode", "payloadSigning", "signatureVersion", "tlsVerify", "credentialsMode", "adminApiType" },
+         { "T2:Credentials (references only, never values)", "accessKeyRef", "secretKeyRef", "presignAccessKeyRef", "presignSecretKeyRef", "credentialsResolved", "presignKeyConfigured", "presignWarning" },
+         { "T2:Limits (editable with object_storage.admin)", "maxOpsPerSecond", "maxConcurrency", "connectTimeoutMs", "readTimeoutMs" },
+         { "T2:Last test", "lastTestSummary", "clockSkewSeconds" },
+         { "T3", "settingsHash", "id", "createDate", "modifyDate" } }),
+      Map.entry(BUCKET, new String[][] {
+         { "T1", "alias", "role", "connectionId", "bucketName", "indexed", "managedBy", "referenceTracked", "source" },
+         { "T2:Observed settings", "versioningState", "lifecycleSummary", "policySummary", "corsSummary", "configDriftNote" },
+         { "T2:Index and health", "objectCount", "totalBytes", "lastScanDate", "lastScanStatus", "headersKnownCount", "headersMatchingPolicyCount", "orphanedCount", "orphanedBytes", "missingCount", "lastReferenceScanDate" },
+         { "T2:Settings", "publicBaseUrl", "trashBucketAlias", "trashPrefix", "maxPresignGetSeconds", "maxPresignPutSeconds", "orphanCountAlertThreshold", "quotaBytes" },
+         { "T3", "id", "scanGeneration", "scanCursor", "createDate", "modifyDate" } }),
+      Map.entry(OBJECT, new String[][] {
+         { "T1", "previewUrl", "objectKey", "bucketId", "folderId", "size", "contentType", "lastModified", "referenceCount" },
+         { "T2:Headers and metadata", "cacheControl", "contentDisposition", "userMetadata", "tags", "matchesHeaderPolicy", "headersKnown" },
+         { "T2:Storage", "name", "extension", "etag", "storageClass", "versionId", "protection", "deleted" },
+         { "T3", "id", "scanGeneration", "indexedAt", "createDate", "modifyDate" } }),
+      Map.entry(FOLDER, new String[][] {
+         { "T1", "path", "name", "bucketId", "parentFolderId", "objectCount", "totalBytes", "newestChange" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(OBJECT_VERSION, new String[][] {
+         { "T1", "objectKey", "bucketId", "objectId", "versionId", "isDeleteMarker", "isLatest", "size", "lastModified" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(OBJECT_REFERENCE, new String[][] {
+         { "T1", "label", "bucketId", "objectId", "keyOrPrefix", "matchMode", "missing" },
+         { "T2:Referencing record", "sourceTable", "sourceRecordId", "sourceField", "scannedAt" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(HEADER_RULE, new String[][] {
+         { "T1", "name", "bucketId", "enabled", "priority" },
+         { "T2:Matches", "keyGlob", "keyRegex", "contentTypePattern" },
+         { "T2:Headers to set", "cacheControl", "contentDisposition" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(PROTECTION_RULE, new String[][] {
+         { "T1", "bucketId", "prefixGlob", "mode", "enabled" },
+         { "T2:Why", "reason", "allowedSystemCallers" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(OPERATION, new String[][] {
+         { "T1", "occurredAt", "action", "bucketAlias", "objectKey", "destinationKey", "result", "actor" },
+         { "T2:Detail", "bytes", "errorMessage", "providerRequestId", "processRunId", "detail", "bucketId" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(USAGE_DAILY, new String[][] {
+         { "T1", "bucketId", "snapshotDate", "objectCount", "totalBytes" },
+         { "T2:By top-level folder", "byPrefix" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(CONNECTION_CAPABILITY, new String[][] {
+         { "T1", "connectionId", "capability", "status", "source", "probedAt" },
+         { "T2:Detail", "detail" },
+         { "T3", "id", "createDate", "modifyDate" } }),
+      Map.entry(BUCKET_CAPABILITY, new String[][] {
+         { "T1", "bucketId", "capability", "status", "source", "probedAt" },
+         { "T2:Detail", "detail" },
+         { "T3", "id", "createDate", "modifyDate" } }));
+
+
+
+   /*******************************************************************************
+    ** Give a table its record-screen sections (identity first, then detail groups,
+    ** then bookkeeping) and take the buttons away from tables that change only
+    ** through actions or from code config.
+    *******************************************************************************/
+   private static void layout(QTableMetaData table)
+   {
+      String[][] rows = LAYOUTS.get(table.getName());
+      if(rows != null)
+      {
+         for(String[] row : rows)
+         {
+            String   kind   = row[0];
+            String[] fields = java.util.Arrays.copyOfRange(row, 1, row.length);
+            if(kind.equals("T1"))
+            {
+               table.withSection(SectionFactory.defaultT1(fields));
+            }
+            else if(kind.equals("T3"))
+            {
+               table.withSection(SectionFactory.defaultT3(fields));
+            }
+            else
+            {
+               String label = kind.substring(kind.indexOf(':') + 1);
+               table.withSection(new QFieldSection(label.toLowerCase().replaceAll("[^a-z0-9]+", "_"), label, new QIcon("list"), Tier.T2, List.of(fields)));
+            }
+         }
+      }
+      if(READ_ONLY.contains(table.getName()))
+      {
+         table.withoutCapabilities(Capability.TABLE_INSERT, Capability.TABLE_UPDATE, Capability.TABLE_DELETE);
+      }
+      else if(CONNECTION.equals(table.getName()) || BUCKET.equals(table.getName()))
+      {
+         table.withoutCapabilities(Capability.TABLE_INSERT, Capability.TABLE_DELETE);
+      }
+   }
+
 
 
 
@@ -483,7 +591,7 @@ public final class ObjectStorageTables
          .withField(ro("deleted", QFieldType.BOOLEAN))
          .withField(ro("scanGeneration", QFieldType.LONG))
          .withField(ro("indexedAt", QFieldType.DATE_TIME))
-         .withVirtualField(new QVirtualFieldMetaData("previewUrl", QFieldType.STRING).withLabel("Preview").withIsQuerySelectable(true)
+         .withField(ro("previewUrl", QFieldType.STRING).withMaxLength(2000).withLabel("Preview")
             .withFieldAdornment(AdornmentType.FilePreviewValues.newFieldAdornment()
                .withValue(AdornmentType.FilePreviewValues.FILE_NAME_FIELD, "name")
                .withValue(AdornmentType.FilePreviewValues.MIME_TYPE_FIELD, "contentType")

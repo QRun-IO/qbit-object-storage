@@ -42,7 +42,9 @@ import com.kingsrook.qbits.objectstorage.config.AdminApiType;
 import com.kingsrook.qbits.objectstorage.config.BucketRole;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
+import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
@@ -229,6 +231,7 @@ public final class CapabilityProbe
          report.notes.put(bucket.getAlias(), notes);
 
          readProbes(connection, bucket, results, report);
+         recordVersioningState(bucket);
 
          if(includeWrite)
          {
@@ -279,6 +282,35 @@ public final class CapabilityProbe
    }
 
    private static final Map<String, String> details = new java.util.concurrent.ConcurrentHashMap<>();
+
+
+
+   /*******************************************************************************
+    ** Show what the probe saw about versioning on the bucket row (Enabled,
+    ** Suspended, Off), so the home and the record do not say "unknown".
+    *******************************************************************************/
+   private static void recordVersioningState(StorageBucketConfig bucket)
+   {
+      String seen = details.get(bucket.getAlias() + ":" + Capability.VERSIONING);
+      if(seen == null || !Db.available(ObjectStorageTables.BUCKET))
+      {
+         return;
+      }
+      String state = seen.equals("Enabled") || seen.equals("Suspended") ? seen : seen.equals("not enabled") ? "Off" : seen.contains("stub") ? "not supported" : null;
+      Integer id = ConfigSync.bucketId(bucket.getAlias());
+      if(state == null || id == null)
+      {
+         return;
+      }
+      try
+      {
+         Db.asSystem(() -> Db.update(ObjectStorageTables.BUCKET, List.of(new QRecord().withValue("id", id).withValue("versioningState", state))));
+      }
+      catch(Exception e)
+      {
+         LOG.debug("Could not record the versioning state", e);
+      }
+   }
 
 
 

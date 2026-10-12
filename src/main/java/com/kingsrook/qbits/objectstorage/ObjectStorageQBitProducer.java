@@ -182,6 +182,13 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
          output.add(app);
       }
       output.addSelfToInstance(qInstance);
+      if(Boolean.TRUE.equals(qBitConfig.getAdminApp()) && qBitConfig.getParentAppName() != null && qInstance.getApp(qBitConfig.getParentAppName()) != null)
+      {
+         ///////////////////////////////////////////////////////////////////////////////
+         // Admin -> Storage: the parent app lists the Storage app in one of its sections //
+         ///////////////////////////////////////////////////////////////////////////////
+         qInstance.getApp(qBitConfig.getParentAppName()).withChild(qInstance.getApp(qBitConfig.getAppName()));
+      }
       return (new MetaDataProducerMultiOutput());
    }
 }
