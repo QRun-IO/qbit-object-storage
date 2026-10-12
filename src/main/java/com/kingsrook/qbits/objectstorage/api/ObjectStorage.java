@@ -50,6 +50,27 @@ public final class ObjectStorage
 
 
    /*******************************************************************************
+    ** Install a configuration without a QQQ instance, for command-line tools and
+    ** tests that use the service but not the tables or the app. Connections and
+    ** buckets work as usual; nothing is written to the object_storage_* tables
+    ** (there are none in this mode), so writes are logged to the application log
+    ** only. Inside a QQQ application, produce the qbit instead.
+    *******************************************************************************/
+   public static void configureStandalone(com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig config)
+   {
+      java.util.List<String> errors = new java.util.ArrayList<>();
+      config.validate(null, errors);
+      if(!errors.isEmpty())
+      {
+         throw (new IllegalArgumentException("Object storage configuration is invalid: " + String.join("; ", errors)));
+      }
+      ObjectStorageRuntime.install(config);
+      ConfigSync.reset();
+   }
+
+
+
+   /*******************************************************************************
     ** The bucket behind an alias from config, called as the current session user.
     *******************************************************************************/
    public static StorageBucket bucket(String alias)
