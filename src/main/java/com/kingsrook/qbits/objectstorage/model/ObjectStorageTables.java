@@ -28,6 +28,7 @@ import com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig;
 import com.kingsrook.qbits.objectstorage.permissions.ObjectStoragePermissionChecker;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.ChildRecordListRenderer;
+import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
@@ -220,6 +221,7 @@ public final class ObjectStorageTables
       for(QTableMetaData table : tables)
       {
          layout(table);
+         QInstanceEnricher.setInferredFieldBackendNames(table);
       }
       for(String[] relation : RELATIONS)
       {
