@@ -185,6 +185,58 @@ public final class Db
 
 
    /*******************************************************************************
+    ** Run a query page by page (ordered by id), handing each page to the consumer.
+    ** The filter's own skip and limit are ignored.
+    *******************************************************************************/
+   public static void forEachPage(String table, QQueryFilter filter, int pageSize, java.util.function.Consumer<List<QRecord>> consumer) throws QException
+   {
+      int skip = 0;
+      while(true)
+      {
+         QQueryFilter page = filter.clone();
+         page.setOrderBys(new ArrayList<>(List.of(new com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterOrderBy("id"))));
+         page.setSkip(skip);
+         page.setLimit(pageSize);
+         QueryInput input = new QueryInput(table).withFilter(page);
+         input.setShouldGenerateDisplayValues(false);
+         input.setShouldTranslatePossibleValues(false);
+         List<QRecord> records = new QueryAction().execute(input).getRecords();
+         if(records.isEmpty())
+         {
+            return;
+         }
+         consumer.accept(records);
+         if(records.size() < pageSize)
+         {
+            return;
+         }
+         skip += pageSize;
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Count the records matching a filter.
+    *******************************************************************************/
+   public static int count(String table, QQueryFilter filter) throws QException
+   {
+      return (new com.kingsrook.qqq.backend.core.actions.tables.CountAction().execute(new com.kingsrook.qqq.backend.core.model.actions.tables.count.CountInput(table).withFilter(filter)).getCount());
+   }
+
+
+
+   /*******************************************************************************
+    ** An equals criteria.
+    *******************************************************************************/
+   public static QFilterCriteria eq(String field, Serializable value)
+   {
+      return (new QFilterCriteria(field, QCriteriaOperator.EQUALS, value));
+   }
+
+
+
+   /*******************************************************************************
     ** The first record of an equals query, or null.
     *******************************************************************************/
    public static QRecord first(String table, Object... nameValuePairs) throws QException

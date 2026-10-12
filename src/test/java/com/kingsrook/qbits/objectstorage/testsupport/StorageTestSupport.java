@@ -96,7 +96,13 @@ public final class StorageTestSupport
             .withSecretKeyRef("${prop.os.test.sk}")
             .withMaxOpsPerSecond(2000)
             .withMaxConcurrency(16))
-         .withBucket(new StorageBucketConfig("files").withConnection("primary").withBucketName("${prop.os.test.files}").withRole(BucketRole.PRIVATE).withIndexed(true));
+         .withBucket(new StorageBucketConfig("files").withConnection("primary").withBucketName("${prop.os.test.files}").withRole(BucketRole.PRIVATE).withIndexed(false));
+      if(t.indexBucket != null)
+      {
+         System.setProperty("os.test.index", t.indexBucket);
+         config.withBucket(new StorageBucketConfig("indexed").withConnection("primary").withBucketName("${prop.os.test.index}").withRole(BucketRole.PUBLIC).withPublicBaseUrl("https://cdn.example.com/idx")
+            .withIndexed(true).withReferenceTracked(true).withExemptPrefixes(new java.util.ArrayList<>(List.of("exempt/"))));
+      }
       if(t.trashBucket != null)
       {
          System.setProperty("os.test.trash", t.trashBucket);
@@ -107,7 +113,7 @@ public final class StorageTestSupport
       if(t.versionedBucket != null)
       {
          System.setProperty("os.test.versioned", t.versionedBucket);
-         config.withBucket(new StorageBucketConfig("versioned").withConnection("primary").withBucketName("${prop.os.test.versioned}").withRole(BucketRole.PRIVATE).withIndexed(false));
+         config.withBucket(new StorageBucketConfig("versioned").withConnection("primary").withBucketName("${prop.os.test.versioned}").withRole(BucketRole.PRIVATE).withIndexed(true));
       }
       if(t.lockBucket != null)
       {
@@ -139,6 +145,17 @@ public final class StorageTestSupport
     *******************************************************************************/
    public static QInstance setUp(ObjectStorageQBitConfig config) throws QException
    {
+      return (setUp(config, null));
+   }
+
+
+
+   /*******************************************************************************
+    ** Fresh instance, store and runtime for a config, letting the test add its own
+    ** tables to the instance before the qbit is produced.
+    *******************************************************************************/
+   public static QInstance setUp(ObjectStorageQBitConfig config, Consumer<QInstance> instanceCustomizer) throws QException
+   {
       MemoryRecordStore.getInstance().reset();
       ObjectStorageRuntime.reset();
       ConfigSync.reset();
@@ -148,6 +165,10 @@ public final class StorageTestSupport
       QInstance instance = new QInstance();
       instance.withInstanceDefaultAuthentication(new QAuthenticationMetaData().withName("anonymous").withType(QAuthenticationType.FULLY_ANONYMOUS));
       instance.addBackend(new QBackendMetaData().withName(MEMORY).withBackendType(MemoryBackendModule.class));
+      if(instanceCustomizer != null)
+      {
+         instanceCustomizer.accept(instance);
+      }
       new ObjectStorageQBitProducer().withQBitConfig(config).produce(instance);
       QContext.init(instance, new QSession());
       ConfigSync.sync();

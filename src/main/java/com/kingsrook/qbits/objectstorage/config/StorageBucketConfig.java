@@ -43,6 +43,10 @@ public class StorageBucketConfig
    private java.util.List<String> exemptPrefixes = new java.util.ArrayList<>();
    private Long maxUploadBytes = 104_857_600L;
    private Boolean protectedBucket = false;
+   private Boolean expectVersioning;
+   private Boolean expectLifecycle;
+   private Boolean expectCors;
+   private Boolean expectPolicy;
 
 
 
@@ -577,6 +581,130 @@ public class StorageBucketConfig
    public StorageBucketConfig withProtectedBucket(Boolean protectedBucket)
    {
       this.protectedBucket = protectedBucket;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for expectVersioning.
+    *******************************************************************************/
+   public Boolean getExpectVersioning()
+   {
+      return (this.expectVersioning);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for expectVersioning.
+    *******************************************************************************/
+   public void setExpectVersioning(Boolean expectVersioning)
+   {
+      this.expectVersioning = expectVersioning;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for expectVersioning.
+    *******************************************************************************/
+   public StorageBucketConfig withExpectVersioning(Boolean expectVersioning)
+   {
+      this.expectVersioning = expectVersioning;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for expectLifecycle.
+    *******************************************************************************/
+   public Boolean getExpectLifecycle()
+   {
+      return (this.expectLifecycle);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for expectLifecycle.
+    *******************************************************************************/
+   public void setExpectLifecycle(Boolean expectLifecycle)
+   {
+      this.expectLifecycle = expectLifecycle;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for expectLifecycle.
+    *******************************************************************************/
+   public StorageBucketConfig withExpectLifecycle(Boolean expectLifecycle)
+   {
+      this.expectLifecycle = expectLifecycle;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for expectCors.
+    *******************************************************************************/
+   public Boolean getExpectCors()
+   {
+      return (this.expectCors);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for expectCors.
+    *******************************************************************************/
+   public void setExpectCors(Boolean expectCors)
+   {
+      this.expectCors = expectCors;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for expectCors.
+    *******************************************************************************/
+   public StorageBucketConfig withExpectCors(Boolean expectCors)
+   {
+      this.expectCors = expectCors;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for expectPolicy.
+    *******************************************************************************/
+   public Boolean getExpectPolicy()
+   {
+      return (this.expectPolicy);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for expectPolicy.
+    *******************************************************************************/
+   public void setExpectPolicy(Boolean expectPolicy)
+   {
+      this.expectPolicy = expectPolicy;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for expectPolicy.
+    *******************************************************************************/
+   public StorageBucketConfig withExpectPolicy(Boolean expectPolicy)
+   {
+      this.expectPolicy = expectPolicy;
       return (this);
    }
 

@@ -69,6 +69,9 @@ public class ObjectStorageQBitConfig implements QBitConfig
    private Integer maxPresignsPerUserPerHour = 100;
    private Double scanRemovalSafetyShare = 0.5;
    private Long indexMaxKeys = 5_000_000L;
+   private String schedulerName;
+   private Integer nightlyIntervalSeconds = 86400;
+   private Integer headBacklogPerRun = 2000;
 
 
 
@@ -634,6 +637,99 @@ public class ObjectStorageQBitConfig implements QBitConfig
    public ObjectStorageQBitConfig withIndexMaxKeys(Long indexMaxKeys)
    {
       this.indexMaxKeys = indexMaxKeys;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for schedulerName.
+    *******************************************************************************/
+   public String getSchedulerName()
+   {
+      return (this.schedulerName);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for schedulerName.
+    *******************************************************************************/
+   public void setSchedulerName(String schedulerName)
+   {
+      this.schedulerName = schedulerName;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for schedulerName.
+    *******************************************************************************/
+   public ObjectStorageQBitConfig withSchedulerName(String schedulerName)
+   {
+      this.schedulerName = schedulerName;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for nightlyIntervalSeconds.
+    *******************************************************************************/
+   public Integer getNightlyIntervalSeconds()
+   {
+      return (this.nightlyIntervalSeconds);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for nightlyIntervalSeconds.
+    *******************************************************************************/
+   public void setNightlyIntervalSeconds(Integer nightlyIntervalSeconds)
+   {
+      this.nightlyIntervalSeconds = nightlyIntervalSeconds;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for nightlyIntervalSeconds.
+    *******************************************************************************/
+   public ObjectStorageQBitConfig withNightlyIntervalSeconds(Integer nightlyIntervalSeconds)
+   {
+      this.nightlyIntervalSeconds = nightlyIntervalSeconds;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for headBacklogPerRun.
+    *******************************************************************************/
+   public Integer getHeadBacklogPerRun()
+   {
+      return (this.headBacklogPerRun);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for headBacklogPerRun.
+    *******************************************************************************/
+   public void setHeadBacklogPerRun(Integer headBacklogPerRun)
+   {
+      this.headBacklogPerRun = headBacklogPerRun;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for headBacklogPerRun.
+    *******************************************************************************/
+   public ObjectStorageQBitConfig withHeadBacklogPerRun(Integer headBacklogPerRun)
+   {
+      this.headBacklogPerRun = headBacklogPerRun;
       return (this);
    }
 

@@ -76,6 +76,7 @@ public final class ObjectStorageRuntime
       publicUrlResolver = newConfig.getPublicUrlResolver() != null ? newConfig.getPublicUrlResolver() : new DefaultPublicUrlResolver();
       alertSink = newConfig.getAlertSink() != null ? newConfig.getAlertSink() : StorageAlertSink.noop();
       CapabilityStore.clearCache();
+      indexHook = new com.kingsrook.qbits.objectstorage.index.ObjectIndexHook();
    }
 
 

@@ -55,6 +55,8 @@ public class ConformanceTarget
    public String versionedBucket;
    /** A private bucket used as the soft-delete trash, when there is no versioning. */
    public String trashBucket;
+   /** A bucket used by the index tests (nothing else writes to it). */
+   public String indexBucket;
    /** A bucket with object lock enabled, or null. */
    public String lockBucket;
 

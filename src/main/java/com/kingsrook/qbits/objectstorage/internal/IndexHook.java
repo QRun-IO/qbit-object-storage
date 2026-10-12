@@ -40,7 +40,8 @@ public interface IndexHook
 
 
    /*******************************************************************************
-    ** An object was removed from the live listing (deleted or moved away).
+    ** An object was removed from the live listing. When soft is true the delete is
+    ** reversible (delete marker or trash), so the row is kept as deleted.
     *******************************************************************************/
-   void objectRemoved(StorageBucketConfig bucket, String key);
+   void objectRemoved(StorageBucketConfig bucket, String key, boolean soft);
 }

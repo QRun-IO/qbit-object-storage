@@ -117,12 +117,14 @@ public final class Targets
          t.versionedBucket = "versioned-" + suffix;
          t.trashBucket = "trash-" + suffix;
          t.lockBucket = "locked-" + suffix;
+         t.indexBucket = "index-" + suffix;
          try(S3Client s3 = t.rawClient())
          {
             s3.createBucket(CreateBucketRequest.builder().bucket(t.bucket).build());
             s3.createBucket(CreateBucketRequest.builder().bucket(t.versionedBucket).build());
             s3.putBucketVersioning(b -> b.bucket(t.versionedBucket).versioningConfiguration(VersioningConfiguration.builder().status(BucketVersioningStatus.ENABLED).build()));
             s3.createBucket(CreateBucketRequest.builder().bucket(t.trashBucket).build());
+            s3.createBucket(CreateBucketRequest.builder().bucket(t.indexBucket).build());
             s3.createBucket(CreateBucketRequest.builder().bucket(t.lockBucket).objectLockEnabledForBucket(true).build());
          }
          t.checksumsSupportedWorks = true;
@@ -187,6 +189,7 @@ public final class Targets
          t.region = "garage";
          t.bucket = "scratch";
          t.trashBucket = "trash";
+         t.indexBucket = "indexed";
          try
          {
             String status = exec(container, "/garage", "status");
@@ -207,7 +210,7 @@ public final class Targets
             exec(container, "/garage", "layout", "assign", "-z", "dc1", "-c", "1G", nodeId);
             exec(container, "/garage", "layout", "apply", "--version", "1");
             exec(container, "/garage", "key", "import", "--yes", "-n", "qqq-test", accessKey, secretKey);
-            for(String b : new String[] { t.bucket, t.trashBucket })
+            for(String b : new String[] { t.bucket, t.trashBucket, t.indexBucket })
             {
                exec(container, "/garage", "bucket", "create", b);
                exec(container, "/garage", "bucket", "allow", "--read", "--write", "--owner", b, "--key", "qqq-test");

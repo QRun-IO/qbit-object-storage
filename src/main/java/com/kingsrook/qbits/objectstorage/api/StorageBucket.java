@@ -658,7 +658,7 @@ public final class StorageBucket
          }
          else if(result.getMode() != DeleteMode.NOT_FOUND)
          {
-            String listenerNote = afterDelete(key);
+            String listenerNote = afterDelete(key, result.getMode() == DeleteMode.SOFT_DELETE_MARKER || result.getMode() == DeleteMode.SOFT_TRASH);
             if(listenerNote != null)
             {
                log.detail(result.getMode() + "; " + listenerNote);
@@ -862,7 +862,7 @@ public final class StorageBucket
          log.bytes((long) deleted).write();
          for(String key : keys)
          {
-            afterDelete(key);
+            afterDelete(key, false);
          }
          return (deleted);
       }
@@ -1273,14 +1273,14 @@ public final class StorageBucket
    /*******************************************************************************
     ** After a delete: update the index and run the listeners.
     *******************************************************************************/
-   private String afterDelete(String key)
+   private String afterDelete(String key, boolean soft)
    {
       IndexHook hook = ObjectStorageRuntime.indexHook();
       if(hook != null)
       {
          try
          {
-            hook.objectRemoved(bucket, key);
+            hook.objectRemoved(bucket, key, soft);
          }
          catch(RuntimeException e)
          {
