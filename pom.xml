@@ -66,7 +66,66 @@
       <tag>HEAD</tag>
    </scm>
 
+   <dependencyManagement>
+      <dependencies>
+         <!-- AWS SDK for Java v2; keep in step with qqq-backend-core's awssdk bom. -->
+         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bom</artifactId>
+            <version>2.41.10</version>
+            <type>pom</type>
+            <scope>import</scope>
+         </dependency>
+      </dependencies>
+   </dependencyManagement>
+
    <dependencies>
+      <dependency>
+         <groupId>software.amazon.awssdk</groupId>
+         <artifactId>s3</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>software.amazon.awssdk</groupId>
+         <artifactId>apache-client</artifactId>
+      </dependency>
+
+      <!-- only for the demo server in src/test (the Storage app in a browser); not shipped -->
+      <dependency>
+         <groupId>com.kingsrook.qqq</groupId>
+         <artifactId>qqq-middleware-javalin</artifactId>
+         <scope>test</scope>
+      </dependency>
+
+      <!-- the Postgres index test: the real SQL of the object index (src/test only) -->
+      <dependency>
+         <groupId>com.kingsrook.qqq</groupId>
+         <artifactId>qqq-backend-module-rdbms</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>com.kingsrook.qqq</groupId>
+         <artifactId>qqq-backend-module-postgres</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.postgresql</groupId>
+         <artifactId>postgresql</artifactId>
+         <version>42.7.9</version>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.testcontainers</groupId>
+         <artifactId>testcontainers-postgresql</artifactId>
+         <version>2.0.3</version>
+         <scope>test</scope>
+      </dependency>
+
+      <dependency>
+         <groupId>org.testcontainers</groupId>
+         <artifactId>testcontainers</artifactId>
+         <version>2.0.3</version>
+         <scope>test</scope>
+      </dependency>
       <dependency>
          <groupId>com.kingsrook.qqq</groupId>
          <artifactId>qqq-backend-core</artifactId>
@@ -87,6 +146,37 @@
 
    <build>
       <plugins>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-checkstyle-plugin</artifactId>
+            <version>3.3.1</version>
+            <dependencies>
+               <dependency>
+                  <groupId>com.puppycrawl.tools</groupId>
+                  <artifactId>checkstyle</artifactId>
+                  <version>10.12.6</version>
+               </dependency>
+            </dependencies>
+            <configuration>
+               <configLocation>checkstyle/config.xml</configLocation>
+               <headerLocation>checkstyle/license.txt</headerLocation>
+               <encoding>UTF-8</encoding>
+               <consoleOutput>true</consoleOutput>
+               <failsOnError>false</failsOnError>
+               <failOnViolation>true</failOnViolation>
+               <violationSeverity>warning</violationSeverity>
+               <includeTestSourceDirectory>false</includeTestSourceDirectory>
+            </configuration>
+            <executions>
+               <execution>
+                  <id>validate</id>
+                  <phase>validate</phase>
+                  <goals>
+                     <goal>check</goal>
+                  </goals>
+               </execution>
+            </executions>
+         </plugin>
          <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
