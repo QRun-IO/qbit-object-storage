@@ -23,13 +23,20 @@ package com.kingsrook.qbits.objectstorage.processes;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qqq.backend.core.model.actions.processes.ProcessSummaryLine;
 import com.kingsrook.qqq.backend.core.model.actions.processes.Status;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
+import com.kingsrook.qqq.backend.core.model.metadata.processes.QComponentType;
+import com.kingsrook.qqq.backend.core.model.metadata.processes.QFrontendComponentMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.processes.QFrontendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
+import com.kingsrook.qqq.backend.core.processes.implementations.etl.streamedwithfrontend.AbstractExtractStep;
 import com.kingsrook.qqq.backend.core.processes.implementations.etl.streamedwithfrontend.AbstractLoadStep;
 import com.kingsrook.qqq.backend.core.processes.implementations.etl.streamedwithfrontend.AbstractTransformStep;
 import com.kingsrook.qqq.backend.core.processes.implementations.etl.streamedwithfrontend.ExtractViaQueryStep;
@@ -60,20 +67,78 @@ public final class EtlSupport
    public static QProcessMetaData etl(String name, String label, String icon, String table, Class<? extends AbstractTransformStep> transform,
       Class<? extends AbstractLoadStep> load, String preview, String permission)
    {
+      return (etl(name, label, icon, table, table, ExtractViaQueryStep.class, transform, load, preview, permission));
+   }
+
+
+
+   /*******************************************************************************
+    ** A streamed ETL whose records come from a custom extract step (for example the
+    ** objects under selected folders), shown as an action on another table.
+    *******************************************************************************/
+   public static QProcessMetaData etl(String name, String label, String icon, String recordTable, String actionTable, Class<? extends AbstractExtractStep> extract,
+      Class<? extends AbstractTransformStep> transform, Class<? extends AbstractLoadStep> load, String preview, String permission)
+   {
       Map<String, Serializable> values = new HashMap<>();
-      values.put(StreamedETLWithFrontendProcess.FIELD_SOURCE_TABLE, table);
-      values.put(StreamedETLWithFrontendProcess.FIELD_DESTINATION_TABLE, table);
+      values.put(StreamedETLWithFrontendProcess.FIELD_SOURCE_TABLE, recordTable);
+      values.put(StreamedETLWithFrontendProcess.FIELD_DESTINATION_TABLE, recordTable);
       values.put(StreamedETLWithFrontendProcess.FIELD_SUPPORTS_FULL_VALIDATION, true);
       values.put(StreamedETLWithFrontendProcess.FIELD_DO_FULL_VALIDATION, true);
       values.put(StreamedETLWithFrontendProcess.FIELD_PREVIEW_MESSAGE, preview);
-      QProcessMetaData process = StreamedETLWithFrontendProcess.defineProcessMetaData(ExtractViaQueryStep.class, transform, load, values);
+      QProcessMetaData process = StreamedETLWithFrontendProcess.defineProcessMetaData(extract, transform, load, values);
       process.setName(name);
+      String table = actionTable;
       process.setLabel(label);
       process.setIcon(new QIcon(icon));
       process.setTableName(table);
       process.setPermissionRules(ObjectStorageTables.permissionRules());
       ObjectStorageRuntime.processPermissions().put(name, permission);
       return (process);
+   }
+
+
+
+   /*******************************************************************************
+    ** Record the permission a process needs.
+    *******************************************************************************/
+   public static void permission(String processName, String permission)
+   {
+      ObjectStorageRuntime.processPermissions().put(processName, permission);
+   }
+
+
+
+   /*******************************************************************************
+    ** Put an input form (help text plus fields) in front of an action, the standard
+    ** way a QQQ process asks for values before its Review.
+    *******************************************************************************/
+   public static QProcessMetaData withInput(QProcessMetaData process, String label, String help, QFieldMetaData... fields)
+   {
+      QFrontendStepMetaData input = new QFrontendStepMetaData().withName("input").withLabel(label).withFormFields(List.of(fields))
+         .withComponent(new QFrontendComponentMetaData().withType(QComponentType.HELP_TEXT).withValue("text", help))
+         .withComponent(new QFrontendComponentMetaData().withType(QComponentType.EDIT_FORM));
+      process.withStep(0, input);
+      return (process);
+   }
+
+
+
+   /*******************************************************************************
+    ** A string field for an input form.
+    *******************************************************************************/
+   public static QFieldMetaData stringField(String name, String label, boolean required)
+   {
+      return (new QFieldMetaData(name, QFieldType.STRING).withLabel(label).withIsRequired(required));
+   }
+
+
+
+   /*******************************************************************************
+    ** A boolean field for an input form.
+    *******************************************************************************/
+   public static QFieldMetaData booleanField(String name, String label, boolean defaultValue)
+   {
+      return (new QFieldMetaData(name, QFieldType.BOOLEAN).withLabel(label).withDefaultValue(defaultValue));
    }
 
 

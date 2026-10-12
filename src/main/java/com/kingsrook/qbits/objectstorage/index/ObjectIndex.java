@@ -297,7 +297,7 @@ public final class ObjectIndex
          else
          {
             boolean changed = !java.util.Objects.equals(row.getValueLong("size"), s.getSize()) || !java.util.Objects.equals(row.getValueString("etag"), etag)
-               || !java.util.Objects.equals(row.getValueInstant("lastModified"), s.getLastModified());
+               || !java.util.Objects.equals(seconds(row.getValueInstant("lastModified")), seconds(s.getLastModified()));
             QRecord update = new QRecord().withValue("id", row.getValue("id")).withValue("folderId", folderId).withValue("size", s.getSize()).withValue("etag", etag)
                .withValue("lastModified", s.getLastModified()).withValue("storageClass", s.getStorageClass()).withValue("scanGeneration", gen).withValue("indexedAt", now)
                .withValue("deleted", false);
@@ -332,6 +332,16 @@ public final class ObjectIndex
          .withValue("extension", dot > 0 ? name.substring(dot + 1).toLowerCase() : null).withValue("size", size).withValue("etag", etag).withValue("lastModified", lastModified)
          .withValue("storageClass", storageClass).withValue("referenceCount", 0).withValue("headersKnown", false).withValue("deleted", false)
          .withValue("scanGeneration", gen).withValue("indexedAt", now));
+   }
+
+
+
+   /*******************************************************************************
+    ** An instant to whole seconds (a listing and a HEAD report different precision).
+    *******************************************************************************/
+   static Instant seconds(Instant instant)
+   {
+      return (instant == null ? null : instant.truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
    }
 
 
@@ -479,6 +489,41 @@ public final class ObjectIndex
             recomputeStats(config);
          }
          return (updates.size());
+      }));
+   }
+
+
+
+   /*******************************************************************************
+    ** HEAD the given object rows and refresh them in the index ("Refresh from
+    ** bucket"). Returns {refreshed, markedDeleted, unreadable}.
+    *******************************************************************************/
+   public static int[] refresh(String alias, List<QRecord> rows) throws QException
+   {
+      StorageBucketConfig config = ObjectStorageRuntime.bucketConfig(alias);
+      StorageBucket       storage = ObjectStorage.asSystem("object-storage", "refresh-" + alias).bucket(alias);
+      return (Db.asSystem(() ->
+      {
+         int[]         counts  = new int[3];
+         List<QRecord> updates = new ArrayList<>();
+         for(QRecord row : rows)
+         {
+            QRecord update = refreshRow(config, storage, row);
+            if(update == null)
+            {
+               counts[2]++;
+            }
+            else
+            {
+               updates.add(update);
+               counts[Boolean.TRUE.equals(update.getValueBoolean("deleted")) ? 1 : 0]++;
+            }
+         }
+         for(int i = 0; i < updates.size(); i += PAGE_SIZE)
+         {
+            Db.update(ObjectStorageTables.OBJECT, updates.subList(i, Math.min(updates.size(), i + PAGE_SIZE)));
+         }
+         return (counts);
       }));
    }
 

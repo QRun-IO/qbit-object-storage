@@ -25,9 +25,12 @@ import java.util.ArrayList;
 import java.util.List;
 import com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig;
 import com.kingsrook.qbits.objectstorage.permissions.ObjectStoragePermissionChecker;
+import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QVirtualFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinOn;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinType;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
@@ -479,7 +482,14 @@ public final class ObjectStorageTables
          .withField(ro("matchesHeaderPolicy", QFieldType.BOOLEAN))
          .withField(ro("deleted", QFieldType.BOOLEAN))
          .withField(ro("scanGeneration", QFieldType.LONG))
-         .withField(ro("indexedAt", QFieldType.DATE_TIME)), KEY_TYPE_BUCKET, "bucketId", false));
+         .withField(ro("indexedAt", QFieldType.DATE_TIME))
+         .withVirtualField(new QVirtualFieldMetaData("previewUrl", QFieldType.STRING).withLabel("Preview").withIsQuerySelectable(true)
+            .withFieldAdornment(AdornmentType.FilePreviewValues.newFieldAdornment()
+               .withValue(AdornmentType.FilePreviewValues.FILE_NAME_FIELD, "name")
+               .withValue(AdornmentType.FilePreviewValues.MIME_TYPE_FIELD, "contentType")
+               .withValue(AdornmentType.FilePreviewValues.SIZE_BYTES_FIELD, "size")
+               .withValue(AdornmentType.FilePreviewValues.THUMBNAIL_MAX_SIZE, 48)))
+         .withCustomizer(TableCustomizers.POST_QUERY_RECORD, new QCodeReference(ObjectPreviewCustomizer.class)), KEY_TYPE_BUCKET, "bucketId", false));
    }
 
 

@@ -48,6 +48,14 @@ public final class ObjectStorageProcesses
    public static List<QProcessMetaData> processes(ObjectStorageQBitConfig config)
    {
       List<QProcessMetaData> processes = new ArrayList<>(TestConnectionProcess.processes());
+      processes.addAll(BucketProcesses.processes());
+      processes.addAll(ObjectWriteProcesses.processes());
+      processes.addAll(CopyMoveProcesses.processes());
+      processes.addAll(DeleteRestoreProcesses.processes());
+      processes.addAll(LinkProcesses.processes());
+      processes.addAll(FolderProcesses.processes());
+      processes.addAll(UploadProcess.processes());
+      processes.addAll(NightlyProcess.processes(config));
       return (processes);
    }
 }

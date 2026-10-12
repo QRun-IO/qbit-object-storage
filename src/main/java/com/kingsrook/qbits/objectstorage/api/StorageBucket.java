@@ -1038,6 +1038,98 @@ public final class StorageBucket
 
 
    /*******************************************************************************
+    ** A short-lived (5 minute) presigned GET used only to render a preview or
+    ** thumbnail in the admin app for a record the user is already allowed to see.
+    ** It is not counted against the per-user presign cap and not logged per row
+    ** (a list of thumbnails would flood the audit log); links a user asks for are
+    ** created with presignGet and logged.
+    *******************************************************************************/
+   public URL previewUrl(String rawKey)
+   {
+      String key = StorageKeys.normalize(rawKey);
+      try
+      {
+         return (connection.presigner().presignGetObject(GetObjectPresignRequest.builder().signatureDuration(Duration.ofMinutes(5))
+            .getObjectRequest(GetObjectRequest.builder().bucket(name()).key(key).build()).build()).url());
+      }
+      catch(RuntimeException e)
+      {
+         throw (ErrorMapper.map(e, "preview " + key));
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** What a delete does in this bucket: a delete marker (versioned), a move to the
+    ** trash, or a permanent delete.
+    *******************************************************************************/
+   public DeleteMode plannedDeleteMode()
+   {
+      if(isVersioned())
+      {
+         return (DeleteMode.SOFT_DELETE_MARKER);
+      }
+      return (Boolean.TRUE.equals(bucket.getTrashEnabled()) ? DeleteMode.SOFT_TRASH : DeleteMode.PERMANENT);
+   }
+
+
+
+   /*******************************************************************************
+    ** The object's tags (empty where tagging is not supported or there are none).
+    *******************************************************************************/
+   public Map<String, String> getTags(String rawKey)
+   {
+      checkPermission("object_storage.view");
+      String key = StorageKeys.normalize(rawKey);
+      if(CapabilityStore.ruledOut(capability(Capability.OBJECT_TAGGING)))
+      {
+         return (new java.util.LinkedHashMap<>());
+      }
+      try(RateLimiter.Permit ignored = connection.getRateLimiter().acquire())
+      {
+         Map<String, String> tags = new java.util.LinkedHashMap<>();
+         connection.client().getObjectTagging(b -> b.bucket(name()).key(key)).tagSet().forEach(t -> tags.put(t.key(), t.value()));
+         return (tags);
+      }
+      catch(RuntimeException e)
+      {
+         throw (ErrorMapper.map(e, "get tags of " + key));
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Replace the object's tags. UNSUPPORTED where the provider has no tagging.
+    *******************************************************************************/
+   public void setTags(String rawKey, Map<String, String> tags)
+   {
+      checkPermission("object_storage.write");
+      String key = StorageKeys.normalize(rawKey);
+      if(CapabilityStore.ruledOut(capability(Capability.OBJECT_TAGGING)))
+      {
+         throw (new StorageException(Reason.UNSUPPORTED, "Object tagging is not supported on this provider"));
+      }
+      guardWrite(key, ProtectionRules.Op.WRITE, "tag");
+      OperationLog.Entry log = new OperationLog.Entry(caller, "HEADERS", alias()).key(key).detail("tags: " + tags.keySet());
+      try(RateLimiter.Permit ignored = connection.getRateLimiter().acquire())
+      {
+         connection.client().putObjectTagging(b -> b.bucket(name()).key(key).tagging(t -> t.tagSet(tags.entrySet().stream()
+            .map(e -> software.amazon.awssdk.services.s3.model.Tag.builder().key(e.getKey()).value(e.getValue()).build()).toList())));
+         log.write();
+      }
+      catch(RuntimeException e)
+      {
+         StorageException se = ErrorMapper.map(e, "set tags of " + key);
+         log.failed(se.getMessage()).requestId(se.getRequestId()).write();
+         throw (se);
+      }
+   }
+
+
+
+   /*******************************************************************************
     ** A presigned upload URL. The content type and length are signed when given,
     ** which pins the upload to that exact type and size. (A presigned PUT cannot
     ** express a maximum size; use presignPost where supported.)
