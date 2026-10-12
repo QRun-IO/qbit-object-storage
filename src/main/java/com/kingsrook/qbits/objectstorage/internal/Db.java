@@ -39,7 +39,9 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
 import com.kingsrook.qqq.backend.core.model.actions.tables.update.UpdateInput;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
-import com.kingsrook.qqq.backend.core.model.session.QSystemUserSession;
+import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.security.QSecurityKeyType;
+import com.kingsrook.qqq.backend.core.model.session.QSession;
 
 
 /*******************************************************************************
@@ -97,7 +99,7 @@ public final class Db
       Exception[]     error    = new Exception[1];
       try
       {
-         QContext.init(new CapturedContext(original.qInstance(), new QSystemUserSession()));
+         QContext.init(new CapturedContext(original.qInstance(), systemSession(original.qInstance())));
          try
          {
             holder[0] = work.run();
@@ -124,6 +126,35 @@ public final class Db
          throw (new QException("Storage table access failed", error[0]));
       }
       return ((T) holder[0]);
+   }
+
+
+
+   /*******************************************************************************
+    ** A session that holds every permission and every all-access security key of
+    ** the given instance (computed per instance, never cached across instances).
+    *******************************************************************************/
+   private static QSession systemSession(QInstance instance)
+   {
+      QSession session = new QSession()
+      {
+         /*******************************************************************************
+          ** The system user holds every permission.
+          *******************************************************************************/
+         @Override
+         public boolean hasPermission(String permissionName)
+         {
+            return (true);
+         }
+      };
+      for(QSecurityKeyType keyType : instance.getSecurityKeyTypes().values())
+      {
+         if(keyType.getAllAccessKeyName() != null)
+         {
+            session.withSecurityKeyValue(keyType.getAllAccessKeyName(), true);
+         }
+      }
+      return (session);
    }
 
 

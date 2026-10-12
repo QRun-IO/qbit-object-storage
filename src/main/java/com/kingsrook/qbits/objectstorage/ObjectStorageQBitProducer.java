@@ -133,12 +133,7 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
    @Override
    public MetaDataProducerMultiOutput produce(QInstance qInstance) throws QException
    {
-      List<String> errors = new ArrayList<>();
-      qBitConfig.validate(qInstance, errors);
-      if(!errors.isEmpty())
-      {
-         throw (new QException("Object Storage qbit configuration is invalid: " + String.join("; ", errors)));
-      }
+      qBitConfig.validate(qInstance);
       QBitMetaData qBit = getQBitMetaData();
       qInstance.addQBit(qBit);
       ObjectStorageRuntime.install(qBitConfig);

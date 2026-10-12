@@ -775,7 +775,8 @@ public final class StorageBucket
          }
          catch(S3Exception e)
          {
-            if(e.statusCode() == 403 || "AccessDenied".equals(ErrorMapper.errorCode(e)))
+            String text = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+            if(e.statusCode() == 403 || "AccessDenied".equals(ErrorMapper.errorCode(e)) || text.contains("worm") || text.contains("object lock") || text.contains("retention"))
             {
                locked++;
             }

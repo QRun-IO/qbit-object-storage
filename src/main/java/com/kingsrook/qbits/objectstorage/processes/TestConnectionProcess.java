@@ -24,7 +24,6 @@ package com.kingsrook.qbits.objectstorage.processes;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import com.kingsrook.qbits.objectstorage.api.Capability;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.internal.CapabilityProbe;
 import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
@@ -289,15 +288,5 @@ public final class TestConnectionProcess
       {
          return (true);
       }
-   }
-
-
-
-   /*******************************************************************************
-    ** The capabilities probed, for documentation and tests.
-    *******************************************************************************/
-   public static Capability[] probed()
-   {
-      return (Capability.values());
    }
 }
