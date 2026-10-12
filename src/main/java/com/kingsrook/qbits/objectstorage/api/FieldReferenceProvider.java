@@ -53,6 +53,7 @@ public class FieldReferenceProvider implements StorageReferenceProvider
    {
       KEY,
       KEY_PREFIX,
+      KEY_FOLDER,
       URL
    }
 
@@ -93,6 +94,18 @@ public class FieldReferenceProvider implements StorageReferenceProvider
    public static FieldReferenceProvider keyPrefix(String bucketAlias, String tableName, String fieldName)
    {
       return (new FieldReferenceProvider(bucketAlias, tableName, fieldName, Holds.KEY_PREFIX));
+   }
+
+
+
+   /*******************************************************************************
+    ** The field holds the key of one object of a set that lives together in a
+    ** folder (an original and its renditions): every object in that key's folder
+    ** is referenced.
+    *******************************************************************************/
+   public static FieldReferenceProvider keyFolder(String bucketAlias, String tableName, String fieldName)
+   {
+      return (new FieldReferenceProvider(bucketAlias, tableName, fieldName, Holds.KEY_FOLDER));
    }
 
 
@@ -148,6 +161,15 @@ public class FieldReferenceProvider implements StorageReferenceProvider
                {
                   references.add(new StorageReference().withBucketAlias(alias).withKeyOrPrefix(parsed.get().getKey()).withMatchMode(MatchMode.KEY).withTableName(tableName)
                      .withRecordId(String.valueOf(row.getValue("id"))).withFieldName(fieldName).withLabel(label));
+               }
+            }
+            else if(holds == Holds.KEY_FOLDER)
+            {
+               int slash = value.lastIndexOf('/');
+               if(slash > 0)
+               {
+                  references.add(new StorageReference().withBucketAlias(alias).withKeyOrPrefix(StorageKeys.normalizePrefix(value.substring(0, slash + 1))).withMatchMode(MatchMode.PREFIX)
+                     .withTableName(tableName).withRecordId(String.valueOf(row.getValue("id"))).withFieldName(fieldName).withLabel(label));
                }
             }
             else

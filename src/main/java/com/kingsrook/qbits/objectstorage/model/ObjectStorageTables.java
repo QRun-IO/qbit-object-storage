@@ -206,6 +206,20 @@ public final class ObjectStorageTables
       new String[] { OBJECT, OBJECT_VERSION, "objectId", "Versions" },
       new String[] { OBJECT, OBJECT_REFERENCE, "objectId", "Referenced by" });
 
+   /** The columns a child list shows for each child table (the rest is one click away on the record). */
+   private static final Map<String, List<String>> CHILD_LIST_COLUMNS = Map.ofEntries(
+      Map.entry(OBJECT, List.of("objectKey", "size", "contentType", "lastModified", "referenceCount")),
+      Map.entry(FOLDER, List.of("path", "objectCount", "totalBytes")),
+      Map.entry(OBJECT_REFERENCE, List.of("label", "keyOrPrefix", "missing", "sourceTable")),
+      Map.entry(OPERATION, List.of("occurredAt", "action", "objectKey", "result", "actor")),
+      Map.entry(USAGE_DAILY, List.of("snapshotDate", "objectCount", "totalBytes")),
+      Map.entry(CONNECTION_CAPABILITY, List.of("capability", "status", "detail")),
+      Map.entry(BUCKET_CAPABILITY, List.of("capability", "status", "detail")),
+      Map.entry(BUCKET, List.of("alias", "role", "indexed", "objectCount")),
+      Map.entry(HEADER_RULE, List.of("name", "keyGlob", "cacheControl", "priority", "enabled")),
+      Map.entry(PROTECTION_RULE, List.of("prefixGlob", "mode", "enabled", "reason")),
+      Map.entry(OBJECT_VERSION, List.of("versionId", "isDeleteMarker", "isLatest", "lastModified")));
+
    /** Tables that are nav entries (the rest appear as relations and child lists on their parents). */
    public static final List<String> NAV_TABLES = List.of(BUCKET, OBJECT, FOLDER, CONNECTION, OPERATION, HEADER_RULE, PROTECTION_RULE);
 
@@ -367,7 +381,12 @@ public final class ObjectStorageTables
       {
          QJoinMetaData join = new QJoinMetaData().withName(joinName(relation)).withLeftTable(relation[0]).withRightTable(relation[1]).withType(JoinType.ONE_TO_MANY)
             .withJoinOn(new JoinOn("id", relation[2]));
-         widgets.add(ChildRecordListRenderer.widgetMetaDataBuilder(join).withName(joinName(relation)).withLabel(relation[3]).withMaxRows(10).getWidgetMetaData());
+         ChildRecordListRenderer.Builder builder = ChildRecordListRenderer.widgetMetaDataBuilder(join).withName(joinName(relation)).withLabel(relation[3]).withMaxRows(10);
+         if(CHILD_LIST_COLUMNS.containsKey(relation[1]))
+         {
+            builder.withOnlyIncludeFieldNames(CHILD_LIST_COLUMNS.get(relation[1]));
+         }
+         widgets.add(builder.getWidgetMetaData());
       }
       return (widgets);
    }

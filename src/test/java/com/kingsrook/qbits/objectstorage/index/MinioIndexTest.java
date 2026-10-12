@@ -474,6 +474,28 @@ class MinioIndexTest
 
 
    @Test
+   void keyFolderReferencesCoverEveryObjectOfTheSet() throws Exception
+   {
+      rawPut(target.indexBucket, "set/one/original.jpg", 10);
+      rawPut(target.indexBucket, "set/one/thumbnail.jpg", 2);
+      rawPut(target.indexBucket, "set/two/original.jpg", 10);
+      ObjectIndex.scan("indexed");
+      StorageTestSupport.setUp(StorageTestSupport.config(target, com.kingsrook.qbits.objectstorage.config.ChecksumMode.WHEN_REQUIRED)
+         .withReferenceProvider(FieldReferenceProvider.keyFolder("indexed", "media", "storageKey")), instance ->
+         instance.addTable(new QTableMetaData().withName("media").withBackendName(StorageTestSupport.MEMORY).withPrimaryKeyField("id")
+            .withField(new QFieldMetaData("id", QFieldType.INTEGER)).withField(new QFieldMetaData("storageKey", QFieldType.STRING))));
+      ObjectIndex.scan("indexed");
+      StorageTestSupport.insert("media", new QRecord().withValue("storageKey", "set/one/original.jpg"), new QRecord().withValue("storageKey", "bare-name.jpg"));
+      ReferenceScan.Result result = ReferenceScan.run("indexed");
+      assertThat(result.references()).as("a key with no folder is not a reference").isEqualTo(1);
+      assertThat(rows("indexed").get("set/one/original.jpg").getValueInteger("referenceCount")).isEqualTo(1);
+      assertThat(rows("indexed").get("set/one/thumbnail.jpg").getValueInteger("referenceCount")).as("the rendition is covered").isEqualTo(1);
+      assertThat(rows("indexed").get("set/two/original.jpg").getValueInteger("referenceCount")).isZero();
+   }
+
+
+
+   @Test
    void backupBucketsAreNeverReferenceScanned() throws Exception
    {
       assertThat(ReferenceScan.applies(ObjectStorageRuntime.bucketConfig("locked"))).isFalse();
