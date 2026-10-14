@@ -5,6 +5,7 @@ All notable changes to this project are documented here. The format follows Keep
 ## [0.1.0] - Unreleased
 
 ### Added
+- `StorageBucket.maxUploadBytes()` in the `api` package: the bucket's upload limit in bytes (null when none), so other qbits need not call `config()`, which returns an internal type.
 - **The service (P1).** `ObjectStorage.bucket(alias)` and `ObjectStorage.asSystem(caller, runId)`: put (multipart above the part size), get with ranges, head, copy (in parts for very large objects), header and metadata changes, delete (delete marker, private trash, or permanent), restore, list, presigned GET, PUT and POST, public URLs, tags. Key building and URL encoding, the header policy (`object_storage_header_rule`), `PublicUrlResolver`, `StorageChangeListener`, `StorageReferenceProvider`, `StorageAlertSink`.
 - Configuration in code, upserted into visible `object_storage_*` tables; secret references with an allow-list; per-connection rate limits; per-bucket and per-connection record security locks.
 - The capability model and the Test connection probe (read-only by default, write tests on request, clock skew, presign host), with seeded provider defaults.
