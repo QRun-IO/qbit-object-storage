@@ -4,7 +4,7 @@ layer: QBIT
 # Help for the Storage app and every object_storage_* table, in the QQQ help-bundle
 # format (qqq#1198). Each table entry says what the table is for and how its rows
 # get created, so an empty table explains itself. ObjectStorageHelp applies it until
-# the core HelpBundles registry ships in a QQQ release (STAND-IN(core=#1198)).
+# the core HelpBundles registry ships in a QQQ release (a stand-in until that ships).
 # Summaries stay under 120 characters (ObjectStorageTablesGuardrailTest).
 entries:
   - key: app:objectStorageAdmin;slot:help
@@ -25,7 +25,7 @@ entries:
   - key: table:object_storage_bucket;slot:help
     summary: "A bucket the application uses by alias: role, indexing, trash, public URL and presign limits."
     content: |
-      **How rows get created:** from code. Declare each bucket in the qbit config (`withBucket`: alias, connection, bucket name, role) and restart; the row is created on first start and its identity (role, public base URL, trash location) is rewritten from code each time. The presign limits (maximum seconds for download and upload links) are yours to edit on the row and take effect immediately: every link is capped by them. Rescan bucket, Check configuration and Apply header policy are record actions.
+      **How rows get created:** from code. Declare each bucket in the qbit config (`withBucket`: alias, connection, bucket name, role) and restart; the row is created on first start and its identity (role, public base URL, trash location) is rewritten from code each time. The presign limits (maximum seconds for download and upload links) can be lowered on the row: the effective limit is the smaller of the code config and the row, and a change applies within about 15 seconds. The row cannot raise the code limit. Rescan bucket, Check configuration and Apply header policy are record actions.
 
   - key: table:object_storage_bucket_capability;slot:help
     summary: "What a bucket supports (versioning, object lock, lifecycle, CORS and more), probed from the provider."

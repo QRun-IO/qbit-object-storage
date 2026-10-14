@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.kingsrook.qbits.objectstorage.api.PresignGet;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
+import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qbits.objectstorage.permissions.ObjectStoragePermissions;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
@@ -150,7 +151,7 @@ public final class LinkProcesses
       {
          String              alias  = ActionSupport.aliasOf(record);
          StorageBucketConfig config = ActionSupport.config(alias);
-         Duration            ttl    = Duration.ofSeconds(Math.min(300, config.getMaxPresignGetSeconds()));
+         Duration            ttl    = Duration.ofSeconds(Math.min(300, ConfigSync.effectiveMaxPresignGetSeconds(config)));
          URL url = ActionSupport.storage(alias).presignGet(PresignGet.of(record.getValueString("objectKey")).ttl(ttl).downloadAs(record.getValueString("name")));
          ProcessSummaryLine line = EtlSupport.text(Status.OK, "Download link for " + alias + "/" + record.getValueString("objectKey") + " (expires in " + ttl.toMinutes() + " minutes; shown once)");
          line.setBulletsOfText(new ArrayList<>(List.of(url.toString())));

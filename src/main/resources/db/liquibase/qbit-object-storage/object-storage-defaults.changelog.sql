@@ -12,6 +12,8 @@
 --   * a seed never changes what an existing host does on deploy: the rows below
 --     are inserted DISABLED, so they are visible examples until someone turns
 --     them on;
+--   * rollback is empty: a seed row may have been edited or adopted by the host, so
+--     rolling back never deletes data;
 --   * no secrets, no host-specific values;
 --   * portable SQL (PostgreSQL and H2): INSERT ... SELECT ... WHERE NOT EXISTS;
 --   * every changeset has a precondition, so a host that has not created the
@@ -29,4 +31,4 @@
 INSERT INTO object_storage_header_rule (name, key_glob, cache_control, priority, enabled, create_date, modify_date)
 SELECT 'default-mutable', '**', 'public, max-age=3600', 1000, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM object_storage_header_rule WHERE name = 'default-mutable');
--- rollback DELETE FROM object_storage_header_rule WHERE name = 'default-mutable' AND enabled = FALSE;
+-- rollback empty

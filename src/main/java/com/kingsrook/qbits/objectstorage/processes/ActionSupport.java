@@ -126,7 +126,7 @@ public final class ActionSupport
     *******************************************************************************/
    public static StorageBucketConfig config(String alias)
    {
-      return (alias == null ? null : ConfigSync.withBucketOverrides(ObjectStorageRuntime.getConfig().findBucket(alias)));
+      return (alias == null ? null : ObjectStorageRuntime.getConfig().findBucket(alias));
    }
 
 

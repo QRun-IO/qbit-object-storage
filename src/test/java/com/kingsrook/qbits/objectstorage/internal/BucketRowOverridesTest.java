@@ -88,24 +88,43 @@ class BucketRowOverridesTest
 
 
    /*******************************************************************************
-    ** Editing the row's presign limits caps new links; the config value applies
-    ** until then; a nonsense value (zero) is ignored.
+    ** The row can only LOWER the presign limits: the effective limit is the
+    ** smaller of the code config and the row. A larger, zero or null row value
+    ** leaves the code limit, the shared config object is never modified, and the
+    ** download-link action and the preview URL read it too.
     *******************************************************************************/
    @Test
-   void rowPresignLimitsCapNewLinks() throws Exception
+   void rowCanOnlyLowerPresignLimits() throws Exception
    {
       StorageTestSupport.setUp(config());
-      Integer bucketId = ConfigSync.bucketId("media");
+      Integer  bucketId = ConfigSync.bucketId("media");
+      Duration half     = Duration.ofMinutes(30);
+      assertThat(expires(ObjectStorage.bucket("media").presignGet(PresignGet.of("a.txt").ttl(half)))).as("code limit is an hour").isEqualTo(1800);
 
-      assertThat(expires(ObjectStorage.bucket("media").presignGet(PresignGet.of("a.txt").ttl(Duration.ofMinutes(30))))).as("the config limit (an hour)").isEqualTo(1800);
-
-      Db.update(ObjectStorageTables.BUCKET, List.of(new QRecord().withValue("id", bucketId).withValue("maxPresignGetSeconds", 60).withValue("maxPresignPutSeconds", 120)));
-      assertThat(expires(ObjectStorage.bucket("media").presignGet(PresignGet.of("a.txt").ttl(Duration.ofMinutes(30))))).as("the row's limit caps the link").isEqualTo(60);
+      setRow(bucketId, 60, 120);
+      assertThat(expires(ObjectStorage.bucket("media").presignGet(PresignGet.of("a.txt").ttl(half)))).as("the row lowers the cap").isEqualTo(60);
       assertThat(expires(ObjectStorage.bucket("media").presignPut(PresignPut.of("a.txt").ttl(Duration.ofMinutes(10))))).isEqualTo(120);
-      assertThat(ActionSupport.config("media").getMaxPresignGetSeconds()).as("the Create download link action reads it too").isEqualTo(60);
+      assertThat(ConfigSync.effectiveMaxPresignGetSeconds(ActionSupport.config("media"))).as("the download-link action reads it too").isEqualTo(60);
+      assertThat(expires(ObjectStorage.bucket("media").previewUrl("a.txt"))).as("previews are capped as well").isEqualTo(60);
+      assertThat(ObjectStorageRuntime.bucketConfig("media").getMaxPresignGetSeconds()).as("the shared config is not mutated").isEqualTo(3600);
 
-      Db.update(ObjectStorageTables.BUCKET, List.of(new QRecord().withValue("id", bucketId).withValue("maxPresignGetSeconds", 0)));
-      assertThat(ObjectStorageRuntime.bucketConfig("media").getMaxPresignGetSeconds()).as("zero is ignored").isEqualTo(60);
+      setRow(bucketId, 999_999, 999_999);
+      assertThat(expires(ObjectStorage.bucket("media").presignGet(PresignGet.of("a.txt").ttl(Duration.ofHours(2))))).as("the row cannot raise the code limit").isEqualTo(3600);
+
+      setRow(bucketId, 0, null);
+      assertThat(expires(ObjectStorage.bucket("media").presignGet(PresignGet.of("a.txt").ttl(half)))).as("zero: the code value applies again").isEqualTo(1800);
+      assertThat(ConfigSync.effectiveMaxPresignPutSeconds(ActionSupport.config("media"))).as("null: the code value applies again").isEqualTo(900);
+   }
+
+
+
+   /*******************************************************************************
+    ** Set the row limits and drop the short-lived cache.
+    *******************************************************************************/
+   private static void setRow(Integer bucketId, Integer get, Integer put) throws Exception
+   {
+      Db.update(ObjectStorageTables.BUCKET, List.of(new QRecord().withValue("id", bucketId).withValue("maxPresignGetSeconds", get).withValue("maxPresignPutSeconds", put)));
+      ConfigSync.clearRowLimits();
    }
 
 

@@ -198,4 +198,21 @@ class ObjectStorageTablesGuardrailTest
       }
    }
 
+
+
+   /*******************************************************************************
+    ** A host's own help in the slot is kept; the bundle only fills empty slots.
+    *******************************************************************************/
+   @Test
+   void hostHelpIsKept() throws Exception
+   {
+      ObjectStorageQBitConfig config   = new ObjectStorageQBitConfig().withBackendName(StorageTestSupport.MEMORY).withBucketScoping(false).withOpenWhenAnonymous(true).withAdminApp(true);
+      QInstance               instance = StorageTestSupport.setUp(config);
+      instance.getTable(ObjectStorageTables.BUCKET).withHelpContent(ObjectStorageHelp.SLOT, new QHelpContent().withContentAsMarkdown("host text"));
+      instance.getApp("objectStorageAdmin").withHelpContent(ObjectStorageHelp.SLOT, new QHelpContent().withContentAsMarkdown("host app text"));
+      ObjectStorageHelp.apply(instance, config);
+      assertThat(instance.getTable(ObjectStorageTables.BUCKET).getHelpContent().get(ObjectStorageHelp.SLOT)).singleElement().extracting(QHelpContent::getContent).isEqualTo("host text");
+      assertThat(instance.getApp("objectStorageAdmin").getHelpContent().get(ObjectStorageHelp.SLOT)).singleElement().extracting(QHelpContent::getContent).isEqualTo("host app text");
+   }
+
 }

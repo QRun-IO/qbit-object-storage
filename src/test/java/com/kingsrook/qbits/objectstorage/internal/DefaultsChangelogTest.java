@@ -105,6 +105,27 @@ public class DefaultsChangelogTest
 
 
    /*******************************************************************************
+    ** Rolling the seed back never deletes data: a header rule the host owns
+    ** survives (the rollback is empty).
+    *******************************************************************************/
+   @Test
+   void rollbackKeepsHostOwnedRules() throws Exception
+   {
+      try(Connection connection = freshSchema(); Statement statement = connection.createStatement())
+      {
+         statement.execute("INSERT INTO object_storage_header_rule (name, key_glob, cache_control, priority, enabled, create_date, modify_date) "
+            + "VALUES ('host-rule', '*.css', 'immutable', 5, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+         runChangelog(connection);
+         Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
+         new Liquibase(CHANGELOG.substring(1), new ClassLoaderResourceAccessor(), database).rollback(1, "");
+         assertThat(scalar(connection, "SELECT COUNT(*) FROM object_storage_header_rule WHERE name = 'host-rule' AND enabled = TRUE")).isEqualTo("1");
+         assertThat(changelogText()).contains("-- rollback empty").doesNotContain("DELETE FROM");
+      }
+   }
+
+
+
+   /*******************************************************************************
     ** A host that already has a rule of that name keeps it untouched, and the
     ** changeset is marked ran. A host without the table is skipped, not failed.
     *******************************************************************************/
@@ -141,7 +162,7 @@ public class DefaultsChangelogTest
       String[] changesets = text.split("(?m)^-- changeset ");
       assertThat(changesets).hasSize(2);
       assertThat(changesets[1]).contains("-- preconditions onFail:MARK_RAN onError:MARK_RAN").contains("-- precondition-sql-check expectedResult:0 ")
-         .contains("-- rollback ").contains("NOT EXISTS").contains("FALSE, CURRENT_TIMESTAMP");
+         .contains("-- rollback empty").contains("NOT EXISTS").contains("FALSE, CURRENT_TIMESTAMP");
       assertThat(text).doesNotContain("precondition-table-exists");
       for(String table : SEEDED_TABLES)
       {

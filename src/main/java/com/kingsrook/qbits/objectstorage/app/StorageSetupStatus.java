@@ -23,14 +23,11 @@ package com.kingsrook.qbits.objectstorage.app;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig;
+import com.kingsrook.qbits.objectstorage.internal.Db;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
-import com.kingsrook.qqq.backend.core.actions.tables.CountAction;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
-import com.kingsrook.qqq.backend.core.model.actions.tables.count.CountInput;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 
 
 /*******************************************************************************
@@ -68,14 +65,17 @@ public final class StorageSetupStatus
 
 
    /*******************************************************************************
-    ** Read the current state, as the viewer.
+    ** Read the current state. Connections and buckets come from the runtime
+    ** config (what the runtime uses, whoever is looking), and the rule counts
+    ** are read as the system, so a bucket-scoped user is never shown a false
+    ** "needs setup".
     *******************************************************************************/
    public static List<Step> load() throws QException
    {
-      return (steps(count(ObjectStorageTables.CONNECTION, new QQueryFilter()), count(ObjectStorageTables.BUCKET, new QQueryFilter()),
-         count(ObjectStorageTables.HEADER_RULE, new QQueryFilter(new QFilterCriteria("enabled", QCriteriaOperator.EQUALS, true))),
-         ObjectStorageRuntime.getConfig().getHeaderPolicy() != null,
-         count(ObjectStorageTables.PROTECTION_RULE, new QQueryFilter(new QFilterCriteria("enabled", QCriteriaOperator.EQUALS, true)))));
+      ObjectStorageQBitConfig config = ObjectStorageRuntime.getConfig();
+      int headerRules = Db.asSystem(() -> Db.query(ObjectStorageTables.HEADER_RULE, "enabled", true).size());
+      int protection  = Db.asSystem(() -> Db.query(ObjectStorageTables.PROTECTION_RULE, "enabled", true).size());
+      return (steps(config.getConnections().size(), config.getBuckets().size(), headerRules, config.getHeaderPolicy() != null, protection));
    }
 
 
@@ -108,17 +108,6 @@ public final class StorageSetupStatus
          ? new Step("Protection rules", SET_UP, enabledProtectionRules + " enabled", ObjectStorageTables.PROTECTION_RULE)
          : new Step("Protection rules", OPTIONAL, "Add a rule to make a bucket prefix read-only or delete-proof", ObjectStorageTables.PROTECTION_RULE));
       return (steps);
-   }
-
-
-
-   /*******************************************************************************
-    ** Count as the viewer.
-    *******************************************************************************/
-   private static int count(String table, QQueryFilter filter) throws QException
-   {
-      Integer count = new CountAction().execute(new CountInput(table).withFilter(filter)).getCount();
-      return (count == null ? 0 : count);
    }
 
 }

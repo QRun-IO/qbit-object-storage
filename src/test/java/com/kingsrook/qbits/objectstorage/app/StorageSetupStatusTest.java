@@ -105,4 +105,22 @@ class StorageSetupStatusTest
       config.withHeaderPolicy(hostPolicy);
       assertThat(StorageSetupStatus.load().get(2).next()).contains("host's own");
    }
+
+
+
+   /*******************************************************************************
+    ** A bucket-scoped user with no bucket keys sees no rows, but the card reads
+    ** the runtime config and counts rules as the system, so it never shows a
+    ** false "needs setup".
+    *******************************************************************************/
+   @Test
+   void scopedUserSeesTrueStatus() throws Exception
+   {
+      ObjectStorageQBitConfig config = new ObjectStorageQBitConfig().withBackendName(StorageTestSupport.MEMORY).withBucketScoping(true).withOpenWhenAnonymous(true).withAdminApp(true)
+         .withConnection(new StorageConnectionConfig("main").withProviderType(ProviderType.MINIO).withEndpoint("http://localhost:1").withRegion("us-east-1"))
+         .withBucket(new StorageBucketConfig("media").withConnection("main").withBucketName("media-bucket").withRole(BucketRole.PRIVATE).withIndexed(false));
+      StorageTestSupport.setUp(config);
+      StorageTestSupport.insert(ObjectStorageTables.HEADER_RULE, new QRecord().withValue("name", "r").withValue("keyGlob", "*").withValue("cacheControl", "no-cache").withValue("priority", 1).withValue("enabled", true));
+      assertThat(StorageSetupStatus.load()).extracting(Step::state).containsExactly("Set up", "Set up", "Set up", "Optional");
+   }
 }

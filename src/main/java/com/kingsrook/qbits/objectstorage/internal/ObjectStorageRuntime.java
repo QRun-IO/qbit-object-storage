@@ -163,7 +163,7 @@ public final class ObjectStorageRuntime
       {
          throw (new IllegalArgumentException("Unknown storage bucket alias: " + alias));
       }
-      return (ConfigSync.withBucketOverrides(bucket));
+      return (bucket);
    }
 
 

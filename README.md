@@ -88,7 +88,7 @@ The jar ships one optional seed changelog. After the changesets that create the 
 - include: { file: db/liquibase/qbit-object-storage/object-storage-defaults.changelog.sql }
 ```
 
-It is insert-only and inserts a **disabled** generic header rule, `default-mutable` (every key, `public, max-age=3600`, priority 1000), so nothing changes on deploy: enable and edit it when you want it. Edits survive re-runs. Protection rules are not seeded (a rule needs a bucket). Presign limits on the bucket row are read at runtime: editing `maxPresignGetSeconds` or `maxPresignPutSeconds` caps every new presigned link. `object_storage_object_version` is reserved and not used yet.
+It is insert-only and inserts a **disabled** generic header rule, `default-mutable` (every key, `public, max-age=3600`, priority 1000), so nothing changes on deploy: enable and edit it when you want it. Edits survive re-runs. Protection rules are not seeded (a rule needs a bucket). Presign limits on the bucket row are read at runtime: `maxPresignGetSeconds` and `maxPresignPutSeconds` on the bucket row can lower the code config limits (the effective limit is the smaller of the two, cached up to 15 seconds); the row cannot raise them. `object_storage_object_version` is reserved and not used yet.
 
 ## Deployment notes
 
