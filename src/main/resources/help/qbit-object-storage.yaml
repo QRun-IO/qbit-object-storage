@@ -1,0 +1,73 @@
+bundle: qbit-object-storage
+version: 1
+layer: QBIT
+# Help for the Storage app and every object_storage_* table, in the QQQ help-bundle
+# format (qqq#1198). Each table entry says what the table is for and how its rows
+# get created, so an empty table explains itself. ObjectStorageHelp applies it until
+# the core HelpBundles registry ships in a QQQ release (STAND-IN(core=#1198)).
+# Summaries stay under 120 characters (ObjectStorageTablesGuardrailTest).
+entries:
+  - key: app:objectStorageAdmin;slot:help
+    summary: "Browse and manage the S3-compatible buckets this application uses, with an index of their objects."
+    content: |
+      The Setup card on the home lists each configuration table with its state and next step. Connections and buckets are declared in code (the qbit config) and appear here after the first start; header rules and protection rules are yours to add; everything else is written by the qbit as it scans and serves.
+
+  - key: table:object_storage_connection;slot:help
+    summary: "A connection to an S3-compatible service: endpoint, region, key variable names, limits and timeouts."
+    content: |
+      **How rows get created:** from code. Declare each connection in the qbit config (`withConnection`) and restart; the row is created on first start and its identity fields (endpoint, region, the names of the key variables) are rewritten from code each time. Rate limits and timeouts are yours to edit on the row and are read the next time the connection starts. No key is ever stored, only the names of the variables that hold them. Test connection checks it.
+
+  - key: table:object_storage_connection_capability;slot:help
+    summary: "What a connection's provider supports (versioning, presigned POST, multipart and more), probed or assumed."
+    content: |
+      **How rows get created:** written by the qbit when a connection is tested (Test connection), starting from the provider defaults. Empty means the connection has not been probed yet. You do not edit these.
+
+  - key: table:object_storage_bucket;slot:help
+    summary: "A bucket the application uses by alias: role, indexing, trash, public URL and presign limits."
+    content: |
+      **How rows get created:** from code. Declare each bucket in the qbit config (`withBucket`: alias, connection, bucket name, role) and restart; the row is created on first start and its identity (role, public base URL, trash location) is rewritten from code each time. The presign limits (maximum seconds for download and upload links) are yours to edit on the row and take effect immediately: every link is capped by them. Rescan bucket, Check configuration and Apply header policy are record actions.
+
+  - key: table:object_storage_bucket_capability;slot:help
+    summary: "What a bucket supports (versioning, object lock, lifecycle, CORS and more), probed from the provider."
+    content: |
+      **How rows get created:** written by the qbit when a connection is tested or a bucket's configuration is checked (Test connection, Check configuration). Empty means the bucket has not been checked yet. You do not edit these.
+
+  - key: table:object_storage_folder;slot:help
+    summary: "The folder tree of an indexed bucket, with object counts and sizes."
+    content: |
+      **How rows get created:** written by the qbit while it scans an indexed bucket and as objects are written through it. Empty means no indexed bucket has been scanned yet: run Rescan bucket on the bucket, or wait for the nightly job. Uploading files to a new folder path also creates it.
+
+  - key: table:object_storage_object;slot:help
+    summary: "The searchable index of every object in the indexed buckets: key, size, type, headers and references."
+    content: |
+      **How rows get created:** written by the qbit: a full scan lists each indexed bucket (Rescan bucket, and nightly), and uploads, copies, moves and deletes made through the qbit update it at once. Empty means no indexed bucket has been scanned yet. Objects changed outside QQQ appear at the next scan. Record actions create download links, copy, move, delete and restore.
+
+  - key: table:object_storage_object_version;slot:help
+    summary: "Reserved for per-object version history. Not used yet: nothing writes it."
+    content: |
+      **How rows get created:** they do not yet. The index lists only the current version of each object, so this table is always empty and is reserved for a later release that indexes version history. A versioned bucket still keeps its versions at the provider; deleting through the qbit writes a delete marker there.
+
+  - key: table:object_storage_object_reference;slot:help
+    summary: "Which application records point at which objects, to find orphaned and missing files."
+    content: |
+      **How rows get created:** written by the reference scan when a bucket is marked `referenceTracked` and the host registers a reference provider (for example `FieldReferenceProvider` for a table field that holds a key). Empty means no reference provider is registered or no scan has run, so orphaned and missing counts are not available.
+
+  - key: table:object_storage_header_rule;slot:help
+    summary: "Cache-Control and Content-Disposition rules by key pattern and type, first match by priority wins."
+    content: |
+      **How rows get created:** an administrator adds them with New, or the qbit's starter changelog adds a disabled `default-mutable` rule (all keys, one hour) that you can enable and edit. Only enabled rules are used, lowest priority number first. A rule can be limited to one bucket. They set the headers on every upload and on Apply header policy. If the host configures its own header policy in code, these rows are not read. Backup buckets are never touched.
+
+  - key: table:object_storage_protection_rule;slot:help
+    summary: "Make a bucket prefix read-only or delete-proof, or only warn when it is changed."
+    content: |
+      **How rows get created:** an administrator adds one with New: pick the bucket (required), a prefix pattern and a mode (Read only, No delete or Warn). Empty is fine: no prefix is protected until you add a rule. Enabled rules are checked on every write and delete made through the qbit.
+
+  - key: table:object_storage_operation;slot:help
+    summary: "The log of every write, delete, link and scan the qbit performed, with who, what and the result."
+    content: |
+      **How rows get created:** written by the qbit on every operation. Empty means nothing has been done through the qbit yet. Presigned URLs are never logged, only the key, the expiry and who asked.
+
+  - key: table:object_storage_usage_daily;slot:help
+    summary: "A daily snapshot of object count and bytes per indexed bucket, for the usage trend."
+    content: |
+      **How rows get created:** written by the nightly job, one row per indexed bucket per day. Empty means the nightly job has not run yet, or no bucket is indexed.

@@ -273,4 +273,44 @@ public final class ConfigSync
       }
       return (base);
    }
+
+
+   /*******************************************************************************
+    ** The bucket's presign limits edited in the UI (Settings on the bucket row),
+    ** applied to the code config so every presign cap reads the row. Only the
+    ** presign TTLs are row-owned: the public base URL, trash bucket and trash
+    ** prefix are identity, rewritten from code on every sync and read-only in
+    ** the UI, so they are never read back from the row. A missing row, an unset
+    ** value or a value below one second keeps the config value.
+    *******************************************************************************/
+   public static StorageBucketConfig withBucketOverrides(StorageBucketConfig base)
+   {
+      if(base == null || !Db.available(ObjectStorageTables.BUCKET))
+      {
+         return (base);
+      }
+      try
+      {
+         QRecord row = Db.asSystem(() -> Db.first(ObjectStorageTables.BUCKET, "alias", base.getAlias()));
+         if(row == null)
+         {
+            return (base);
+         }
+         Integer get = row.getValueInteger("maxPresignGetSeconds");
+         Integer put = row.getValueInteger("maxPresignPutSeconds");
+         if(get != null && get > 0)
+         {
+            base.setMaxPresignGetSeconds(get);
+         }
+         if(put != null && put > 0)
+         {
+            base.setMaxPresignPutSeconds(put);
+         }
+      }
+      catch(Exception e)
+      {
+         LOG.debug("Could not read bucket overrides", e);
+      }
+      return (base);
+   }
 }

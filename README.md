@@ -78,6 +78,18 @@ Every write is a standard streamed ETL: **Review** (the dry run, with summary li
 
 Permissions: `object_storage.view`, `.write`, `.delete`, `.admin` (admin implies the rest). Per-bucket scoping uses record security locks on the `object_storage_bucket` and `object_storage_connection` security key types (switch off with `withBucketScoping(false)` for a single-administrator app).
 
+## Setup and starter defaults
+
+The Storage home has a **Setup** card: connections and buckets (declared in code, synced into their tables), header rules, and protection rules, each with its state and next step. Every table has help (`help/qbit-object-storage.yaml`) saying what it is for and how its rows get created, which also shows when the table is empty.
+
+The jar ships one optional seed changelog. After the changesets that create the tables (the script from `ObjectStorageSchema.postgresScript`), include it from your master changelog:
+
+```yaml
+- include: { file: db/liquibase/qbit-object-storage/object-storage-defaults.changelog.sql }
+```
+
+It is insert-only and inserts a **disabled** generic header rule, `default-mutable` (every key, `public, max-age=3600`, priority 1000), so nothing changes on deploy: enable and edit it when you want it. Edits survive re-runs. Protection rules are not seeded (a rule needs a bucket). Presign limits on the bucket row are read at runtime: editing `maxPresignGetSeconds` or `maxPresignPutSeconds` caps every new presigned link. `object_storage_object_version` is reserved and not used yet.
+
 ## Deployment notes
 
 - **Uploads** go through the app server (100 MB per file by default, per bucket `maxUploadBytes`), using QQQ's standard file-upload field, so the app needs `uploadedFileArchiveTableName` set in its Javalin metadata, as for any file upload.
