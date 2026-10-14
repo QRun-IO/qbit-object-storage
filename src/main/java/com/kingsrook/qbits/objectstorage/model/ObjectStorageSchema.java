@@ -52,14 +52,17 @@ public final class ObjectStorageSchema
       ObjectStorageTables.OBJECT, List.of(List.of("bucketId", "objectKey")),
       ObjectStorageTables.USAGE_DAILY, List.of(List.of("bucketId", "snapshotDate")));
 
-   /** Browse and lookup indexes: table to column lists. */
+   /** Browse and lookup indexes: table to column lists. New entries go at the end of
+    ** a table's list, so the generated names (ix_<table>_<n>) of existing ones never change.
+    ** The child lists on record pages (folder -> objects, object -> versions and references)
+    ** filter on the parent id alone, so those columns lead an index of their own. */
    private static final Map<String, List<List<String>>> INDEXES = Map.of(
       ObjectStorageTables.OBJECT, List.of(List.of("bucketId", "folderId"), List.of("bucketId", "lastModified"), List.of("bucketId", "size"), List.of("bucketId", "contentType"),
-         List.of("bucketId", "deleted", "referenceCount"), List.of("bucketId", "headersKnown", "deleted")),
-      ObjectStorageTables.OBJECT_REFERENCE, List.of(List.of("bucketId", "objectId"), List.of("bucketId", "missing")),
+         List.of("bucketId", "deleted", "referenceCount"), List.of("bucketId", "headersKnown", "deleted"), List.of("folderId")),
+      ObjectStorageTables.OBJECT_REFERENCE, List.of(List.of("bucketId", "objectId"), List.of("bucketId", "missing"), List.of("objectId")),
       ObjectStorageTables.OPERATION, List.of(List.of("bucketId", "occurredAt"), List.of("objectKey", "occurredAt")),
       ObjectStorageTables.FOLDER, List.of(List.of("parentFolderId")),
-      ObjectStorageTables.OBJECT_VERSION, List.of(List.of("bucketId", "objectKey")));
+      ObjectStorageTables.OBJECT_VERSION, List.of(List.of("bucketId", "objectKey"), List.of("objectId")));
 
 
 
