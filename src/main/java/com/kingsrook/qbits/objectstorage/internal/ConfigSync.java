@@ -51,6 +51,9 @@ public final class ConfigSync
    private static final Map<String, Integer> BUCKET_IDS     = new ConcurrentHashMap<>();
    private static final Map<String, Integer> CONNECTION_IDS = new ConcurrentHashMap<>();
 
+   private static final Map<String, RowLimits> ROW_LIMITS = new ConcurrentHashMap<>();
+   private static final long                 ROW_LIMIT_CACHE_MILLIS = 15_000L;
+
    private static volatile boolean synced = false;
 
 
@@ -72,6 +75,7 @@ public final class ConfigSync
       synced = false;
       BUCKET_IDS.clear();
       CONNECTION_IDS.clear();
+      ROW_LIMITS.clear();
    }
 
 
@@ -272,5 +276,91 @@ public final class ConfigSync
          LOG.debug("Could not read connection overrides", e);
       }
       return (base);
+   }
+
+
+
+   /*******************************************************************************
+    ** What a bucket row says about presign limits (row values, cached briefly).
+    *******************************************************************************/
+   private record RowLimits(long readAt, Integer get, Integer put)
+   {
+   }
+
+
+
+   /*******************************************************************************
+    ** The longest a presigned download link may last, in seconds: the smaller of
+    ** the code config and the bucket row (Settings on object_storage_bucket). The
+    ** row can only lower the code limit; a missing row, null or a value below one
+    ** second means "no row limit". The config object is never modified.
+    *******************************************************************************/
+   public static int effectiveMaxPresignGetSeconds(StorageBucketConfig bucket)
+   {
+      return (lowest(bucket.getMaxPresignGetSeconds(), rowLimits(bucket.getAlias()).get()));
+   }
+
+
+
+   /*******************************************************************************
+    ** The longest a presigned upload link may last, in seconds (see the GET twin).
+    *******************************************************************************/
+   public static int effectiveMaxPresignPutSeconds(StorageBucketConfig bucket)
+   {
+      return (lowest(bucket.getMaxPresignPutSeconds(), rowLimits(bucket.getAlias()).put()));
+   }
+
+
+
+   /*******************************************************************************
+    ** Forget the cached row limits (after a row edit in a test; they also expire).
+    *******************************************************************************/
+   public static void clearRowLimits()
+   {
+      ROW_LIMITS.clear();
+   }
+
+
+
+   /*******************************************************************************
+    ** The smaller of the code value (3600 when unset) and a usable row value.
+    *******************************************************************************/
+   private static int lowest(Integer code, Integer row)
+   {
+      int base = code == null ? 3600 : code;
+      return (row != null && row > 0 && row < base ? row : base);
+   }
+
+
+
+   /*******************************************************************************
+    ** The row's presign limits, read at most every 15 seconds per alias (the way
+    ** the header rules are cached); never throws.
+    *******************************************************************************/
+   private static RowLimits rowLimits(String alias)
+   {
+      RowLimits cached = ROW_LIMITS.get(alias);
+      if(cached != null && System.currentTimeMillis() - cached.readAt() < ROW_LIMIT_CACHE_MILLIS)
+      {
+         return (cached);
+      }
+      RowLimits limits = new RowLimits(System.currentTimeMillis(), null, null);
+      if(Db.available(ObjectStorageTables.BUCKET))
+      {
+         try
+         {
+            QRecord row = Db.asSystem(() -> Db.first(ObjectStorageTables.BUCKET, "alias", alias));
+            if(row != null)
+            {
+               limits = new RowLimits(System.currentTimeMillis(), row.getValueInteger("maxPresignGetSeconds"), row.getValueInteger("maxPresignPutSeconds"));
+            }
+         }
+         catch(Exception e)
+         {
+            LOG.debug("Could not read bucket presign limits", e);
+         }
+      }
+      ROW_LIMITS.put(alias, limits);
+      return (limits);
    }
 }

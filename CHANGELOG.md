@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows Keep
 ## [0.1.0] - Unreleased
 
 ### Added
+- Every table explains itself: a help bundle (`help/qbit-object-storage.yaml`, QQQ help-bundle format) says what each `object_storage_*` table is for and how its rows get created; it shows on the table screen and when the table is empty. Applied by `ObjectStorageHelp` (STAND-IN for QRun-IO/qqq#1198); a host's own help is kept.
+- A Setup card on the Storage home (connections, buckets, header rules, protection rules) with the state and next step of each, resolved the way the runtime resolves them.
+- A starter changelog `db/liquibase/qbit-object-storage/object-storage-defaults.changelog.sql`: a disabled `default-mutable` header rule. Insert-only, run through real Liquibase in `DefaultsChangelogTest`.
+- `ObjectStorageTablesGuardrailTest` (each table is used at runtime, seeded or explained, and has help).
+- The presign limits on the bucket row (`maxPresignGetSeconds`, `maxPresignPutSeconds`) are now read at runtime (`ConfigSync.effectiveMaxPresignGetSeconds` / `Put`) as a lower cap: the effective limit is the smaller of the code config and the row. It applies to presigned GET, PUT, POST, previews and the Create download link action. Previously the row value was never read.
+- `object_storage_object_version` is documented as reserved and not used yet (the indexer lists current versions only).
 - `StorageBucket.maxUploadBytes()` in the `api` package: the bucket's upload limit in bytes (null when none), so other qbits need not call `config()`, which returns an internal type.
 - **The service (P1).** `ObjectStorage.bucket(alias)` and `ObjectStorage.asSystem(caller, runId)`: put (multipart above the part size), get with ranges, head, copy (in parts for very large objects), header and metadata changes, delete (delete marker, private trash, or permanent), restore, list, presigned GET, PUT and POST, public URLs, tags. Key building and URL encoding, the header policy (`object_storage_header_rule`), `PublicUrlResolver`, `StorageChangeListener`, `StorageReferenceProvider`, `StorageAlertSink`.
 - Configuration in code, upserted into visible `object_storage_*` tables; secret references with an allow-list; per-connection rate limits; per-bucket and per-connection record security locks.
