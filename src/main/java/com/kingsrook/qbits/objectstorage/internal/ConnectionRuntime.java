@@ -21,57 +21,38 @@
 package com.kingsrook.qbits.objectstorage.internal;
 
 
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-import java.io.ByteArrayInputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.time.Duration;
-import java.util.Collection;
+import java.util.function.Function;
 import com.kingsrook.qbits.objectstorage.config.AddressingStyle;
-import com.kingsrook.qbits.objectstorage.config.ChecksumMode;
 import com.kingsrook.qbits.objectstorage.config.CredentialsMode;
 import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
-import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
+import com.kingsrook.qqq.backend.module.filesystem.s3.model.metadata.S3BackendMetaData;
+import com.kingsrook.qqq.backend.module.filesystem.s3.model.metadata.S3ChecksumMode;
+import com.kingsrook.qqq.backend.module.filesystem.s3.utils.S3ClientFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
-import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
-import software.amazon.awssdk.core.retry.RetryMode;
-import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.http.SdkHttpConfigurationOption;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.DelegatingS3Client;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.S3Request;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.utils.AttributeMap;
-import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
  ** One connection's live state: the settings, one cached SDK v2 S3Client and
  ** S3Presigner, and the rate limiter.
  **
- ** STAND-IN: this is the small internal client factory used until QQQ core's
- ** S3ClientFactory (qqq #1095, RC.5) is released; replace it then. Nothing
- ** outside this package depends on how the client is built.
+ ** Core owns S3 client construction. This runtime owns its uncached client and
+ ** closes it on reset/reinstall; the presigner remains local.
  *******************************************************************************/
 public class ConnectionRuntime
 {
-   private static final QLogger LOG = QLogger.getLogger(ConnectionRuntime.class);
-
    private final StorageConnectionConfig config;
    private final RateLimiter             rateLimiter;
    private final String                  settingsHash;
@@ -119,7 +100,7 @@ public class ConnectionRuntime
 
 
    /*******************************************************************************
-    ** Hash of the settings that shape the client (clients rebuild when it changes).
+    ** Display hash of connection settings; runtime reset/reinstall rebuilds clients.
     *******************************************************************************/
    public String getSettingsHash()
    {
@@ -217,36 +198,41 @@ public class ConnectionRuntime
     *******************************************************************************/
    private S3Client buildClient()
    {
-      S3ClientBuilder builder = S3Client.builder()
-         .credentialsProvider(credentials(config.getAccessKeyRef(), config.getSecretKeyRef()))
-         .httpClient(httpClient())
-         .forcePathStyle(pathStyle())
-         .overrideConfiguration(o -> o.retryStrategy(RetryMode.ADAPTIVE_V2));
-
-      String endpoint = SecretRefs.resolveSetting(config.getEndpoint());
-      if(StringUtils.hasContent(endpoint))
+      S3BackendMetaData backend = backendMetaData();
+      String token = config.getCredentialsMode() == CredentialsMode.STATIC_REFS ? SecretRefs.resolve(config.getSessionTokenRef()) : null;
+      AwsCredentialsProvider sessionCredentials = null;
+      if(token != null && backend.getAccessKey() != null && backend.getSecretKey() != null)
       {
-         builder.endpointOverride(URI.create(endpoint));
-      }
-      String region = effectiveRegion();
-      if(region != null)
-      {
-         builder.region(Region.of(region));
+         sessionCredentials = StaticCredentialsProvider.create(AwsSessionCredentials.create(backend.getAccessKey(), backend.getSecretKey(), token));
       }
 
-      if(config.effectiveChecksumMode() == ChecksumMode.WHEN_REQUIRED)
-      {
-         builder.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
-         builder.responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED);
-      }
-      else
-      {
-         builder.requestChecksumCalculation(RequestChecksumCalculation.WHEN_SUPPORTED);
-         builder.responseChecksumValidation(ResponseChecksumValidation.WHEN_SUPPORTED);
-      }
+      S3Client coreClient = S3ClientFactory.buildClient(backend);
+      return (sessionCredentials == null ? coreClient : new SessionCredentialsClient(coreClient, sessionCredentials));
+   }
 
-      LOG.debug("Building S3 client", logPair("connection", config.getName()), logPair("endpoint", endpoint), logPair("checksumMode", config.effectiveChecksumMode()));
-      return (builder.build());
+
+
+   /*******************************************************************************
+    ** Resolve references before passing the connection settings to core. No bucket
+    ** is mapped: one connection serves multiple buckets. Presigning stays local.
+    *******************************************************************************/
+   S3BackendMetaData backendMetaData()
+   {
+      S3BackendMetaData backend = new S3BackendMetaData()
+         .withEndpoint(SecretRefs.resolveSetting(config.getEndpoint()))
+         .withRegion(effectiveRegion())
+         .withPathStyleAccess(pathStyle())
+         .withChecksumMode(S3ChecksumMode.valueOf(config.effectiveChecksumMode().name()))
+         .withTlsVerify(config.getTlsVerify())
+         .withCaCertificatesPem(SecretRefs.resolve(config.getCaBundleRef()))
+         .withConnectTimeoutMillis(config.getConnectTimeoutMs())
+         .withSocketTimeoutMillis(config.getReadTimeoutMs());
+      if(config.getCredentialsMode() == CredentialsMode.STATIC_REFS)
+      {
+         backend.withAccessKey(SecretRefs.resolve(config.getAccessKeyRef()))
+            .withSecretKey(SecretRefs.resolve(config.getSecretKeyRef()));
+      }
+      return (backend);
    }
 
 
@@ -305,139 +291,41 @@ public class ConnectionRuntime
 
 
    /*******************************************************************************
-    ** Apache HTTP client with the connection's timeouts and TLS settings.
+    ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.7)
+    ** RC.5 metadata/factory lacks a session token or credentials-provider hook.
+    ** Override request credentials only; core still owns the client and transport.
     *******************************************************************************/
-   private SdkHttpClient httpClient()
+   private static class SessionCredentialsClient extends DelegatingS3Client
    {
-      ApacheHttpClient.Builder builder = ApacheHttpClient.builder()
-         .connectionTimeout(Duration.ofMillis(config.getConnectTimeoutMs()))
-         .socketTimeout(Duration.ofMillis(config.getReadTimeoutMs()));
-
-      if(Boolean.FALSE.equals(config.getTlsVerify()))
-      {
-         LOG.warn("TLS verification is disabled for a storage connection; use only for development", logPair("connection", config.getName()));
-         return (builder.buildWithDefaults(AttributeMap.builder().put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, Boolean.TRUE).build()));
-      }
-
-      String caPem = SecretRefs.resolve(config.getCaBundleRef());
-      if(StringUtils.hasContent(caPem))
-      {
-         TrustManager[] trustManagers = trustManagers(caPem);
-         builder.tlsTrustManagersProvider(() -> trustManagers);
-      }
-      return (builder.build());
-   }
+      private final AwsCredentialsProvider credentialsProvider;
 
 
 
-   /*******************************************************************************
-    ** Trust the given PEM bundle in addition to the JVM default trust store.
-    *******************************************************************************/
-   static TrustManager[] trustManagers(String pem)
-   {
-      try
-      {
-         CertificateFactory                certificateFactory = CertificateFactory.getInstance("X.509");
-         Collection<? extends Certificate> certificates       = certificateFactory.generateCertificates(new ByteArrayInputStream(pem.getBytes(StandardCharsets.UTF_8)));
-         if(certificates.isEmpty())
-         {
-            throw (new IllegalArgumentException("The CA bundle contains no certificates"));
-         }
-         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-         keyStore.load(null, null);
-         int index = 0;
-         for(Certificate certificate : certificates)
-         {
-            keyStore.setCertificateEntry("object-storage-ca-" + index++, certificate);
-         }
-         X509TrustManager custom   = x509(keyStore);
-         X509TrustManager fallback = x509(null);
-         return (new TrustManager[] { new Composite(custom, fallback) });
-      }
-      catch(IllegalArgumentException e)
-      {
-         throw (e);
-      }
-      catch(Exception e)
-      {
-         throw (new IllegalArgumentException("Could not load the CA bundle for a storage connection", e));
-      }
-   }
-
-
-
-   /*******************************************************************************
-    ** The X509 trust manager of a key store (null: the JVM default).
-    *******************************************************************************/
-   private static X509TrustManager x509(KeyStore keyStore) throws Exception
-   {
-      TrustManagerFactory factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      factory.init(keyStore);
-      for(TrustManager trustManager : factory.getTrustManagers())
-      {
-         if(trustManager instanceof X509TrustManager x)
-         {
-            return (x);
-         }
-      }
-      throw (new IllegalStateException("No X509TrustManager available"));
-   }
-
-
-
-   /*******************************************************************************
-    ** Trusts a chain if either the private-CA or the default trust manager does.
-    *******************************************************************************/
-   private record Composite(X509TrustManager custom, X509TrustManager fallback) implements X509TrustManager
-   {
       /*******************************************************************************
-       ** Client certs are not used.
+       ** Wrap a core-built client with the connection's session credentials.
        *******************************************************************************/
-      @Override
-      public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException
+      private SessionCredentialsClient(S3Client delegate, AwsCredentialsProvider credentialsProvider)
       {
-         try
-         {
-            custom.checkClientTrusted(chain, authType);
-         }
-         catch(CertificateException e)
-         {
-            fallback.checkClientTrusted(chain, authType);
-         }
+         super(delegate);
+         this.credentialsProvider = credentialsProvider;
       }
 
 
 
       /*******************************************************************************
-       ** Server certs.
+       ** Preserve request overrides and the concrete request type while adding the
+       ** session token to signing, including streaming and paginated operations.
        *******************************************************************************/
       @Override
-      public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException
+      @SuppressWarnings("unchecked") // toBuilder().build() retains the concrete request type T.
+      protected <T extends S3Request, ReturnT> ReturnT invokeOperation(T request, Function<T, ReturnT> operation)
       {
-         try
-         {
-            custom.checkServerTrusted(chain, authType);
-         }
-         catch(CertificateException e)
-         {
-            fallback.checkServerTrusted(chain, authType);
-         }
-      }
-
-
-
-      /*******************************************************************************
-       ** Accepted issuers of both.
-       *******************************************************************************/
-      @Override
-      public X509Certificate[] getAcceptedIssuers()
-      {
-         X509Certificate[] a = custom.getAcceptedIssuers();
-         X509Certificate[] b = fallback.getAcceptedIssuers();
-         X509Certificate[] all = new X509Certificate[a.length + b.length];
-         System.arraycopy(a, 0, all, 0, a.length);
-         System.arraycopy(b, 0, all, a.length, b.length);
-         return (all);
+         AwsRequestOverrideConfiguration.Builder overrides = request.overrideConfiguration()
+            .map(AwsRequestOverrideConfiguration::toBuilder).orElseGet(AwsRequestOverrideConfiguration::builder);
+         T signedRequest = (T) request.toBuilder()
+            .overrideConfiguration(overrides.credentialsProvider(credentialsProvider).build())
+            .build();
+         return (operation.apply(signedRequest));
       }
    }
 }
