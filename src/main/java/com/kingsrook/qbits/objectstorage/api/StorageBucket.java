@@ -129,6 +129,18 @@ public final class StorageBucket
 
 
    /*******************************************************************************
+    ** The largest object this bucket accepts on upload, in bytes, or null when
+    ** the bucket sets no limit.  Callers outside this qbit use this instead of
+    ** config(), which returns an internal type.
+    *******************************************************************************/
+   public Long maxUploadBytes()
+   {
+      return (bucket.getMaxUploadBytes());
+   }
+
+
+
+   /*******************************************************************************
     ** The bucket configuration.
     *******************************************************************************/
    public StorageBucketConfig config()
