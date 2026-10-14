@@ -130,6 +130,25 @@ class TablesAndConfigTest
 
 
    /*******************************************************************************
+    ** The record-page child lists filter on the parent id alone (folder ->
+    ** objects, object -> versions and references), so the generated schema
+    ** gives each of those columns its own index, appended so existing generated
+    ** index names keep their numbers.
+    *******************************************************************************/
+   @Test
+   void testChildListColumnsAreIndexed()
+   {
+      String schema = String.join("\n", com.kingsrook.qbits.objectstorage.model.ObjectStorageSchema.postgresStatements(new ObjectStorageQBitConfig().withBackendName("rdbms")));
+      assertThat(schema)
+         .contains("ix_object_storage_object_1 ON object_storage_object (bucket_id, folder_id)")
+         .contains("ix_object_storage_object_7 ON object_storage_object (folder_id)")
+         .contains("ix_object_storage_object_version_2 ON object_storage_object_version (object_id)")
+         .contains("ix_object_storage_object_reference_3 ON object_storage_object_reference (object_id)");
+   }
+
+
+
+   /*******************************************************************************
     ** Owner naming rules: every table is lowercase snake_case with the full qbit
     ** name as prefix; no table has a field that could hold a secret value; the nav
     ** lists only the main tables and the app has a home widget.
