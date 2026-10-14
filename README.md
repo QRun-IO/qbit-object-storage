@@ -78,6 +78,21 @@ Every write is a standard streamed ETL: **Review** (the dry run, with summary li
 
 Permissions: `object_storage.view`, `.write`, `.delete`, `.admin` (admin implies the rest). Per-bucket scoping uses record security locks on the `object_storage_bucket` and `object_storage_connection` security key types (switch off with `withBucketScoping(false)` for a single-administrator app).
 
+## Health checks
+
+The producer registers `object_storage.connection.<id>` for each configured
+`object_storage_connection` row: **DEPENDENCY**, **STORAGE**, every **300s**,
+with a **20000ms** timeout and component `object_storage`. The central health runner
+refreshes the supplier as rows change. The existing `CapabilityProbe` runs only
+read-only calls within the deadline; it never runs write or presign tests or stores
+free-form capability diagnostics. Connection failures are DOWN, clock skew above
+900 seconds is DEGRADED, and connections without buckets are UNKNOWN. Details
+contain only problem kind, clock skew seconds and bucket count.
+
+Turn a connection's check off or change its interval in the central `health_check`
+table. Both **Test connection** record actions remain available, including
+on-demand write tests.
+
 ## Deployment notes
 
 - **Uploads** go through the app server (100 MB per file by default, per bucket `maxUploadBytes`), using QQQ's standard file-upload field, so the app needs `uploadedFileArchiveTableName` set in its Javalin metadata, as for any file upload.

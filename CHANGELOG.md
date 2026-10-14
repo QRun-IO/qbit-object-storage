@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows Keep
 ## [0.1.0] - Unreleased
 
 ### Added
+- Central health supplier `object_storage.connection.<id>` (DEPENDENCY/STORAGE, 300s interval, 20000ms timeout), reusing bounded read-only capability probes with safe problem kinds and clock-skew details. Turn a connection's check off in the central `health_check` table.
+- In-memory health tests for registration, refresh, UP/DOWN/DEGRADED/UNKNOWN outcomes, deadlines, read-only execution and sentinel-secret exclusion.
 - `StorageBucket.maxUploadBytes()` in the `api` package: the bucket's upload limit in bytes (null when none), so other qbits need not call `config()`, which returns an internal type.
 - **The service (P1).** `ObjectStorage.bucket(alias)` and `ObjectStorage.asSystem(caller, runId)`: put (multipart above the part size), get with ranges, head, copy (in parts for very large objects), header and metadata changes, delete (delete marker, private trash, or permanent), restore, list, presigned GET, PUT and POST, public URLs, tags. Key building and URL encoding, the header policy (`object_storage_header_rule`), `PublicUrlResolver`, `StorageChangeListener`, `StorageReferenceProvider`, `StorageAlertSink`.
 - Configuration in code, upserted into visible `object_storage_*` tables; secret references with an allow-list; per-connection rate limits; per-bucket and per-connection record security locks.
@@ -15,6 +17,9 @@ All notable changes to this project are documented here. The format follows Keep
 - **The Storage app (P3, P4).** Admin -> Storage with a responsive home; record screens with sections, child lists and a thumbnail preview; actions Rescan bucket, Check configuration, Refresh from bucket, Apply header policy (replaces app-specific backfills), Change headers and metadata, Edit tags, Copy, Move or rename, Delete, Restore, Create download link, Create upload link, folder rename and delete, Upload files, Test connection; every one a standard Review and Result with a bulk cap.
 - `ObjectStorageSchema`: PostgreSQL DDL generated from the table metadata.
 - Conformance suite against MinIO and Garage (Testcontainers), service, index and action tests, and the index and actions on PostgreSQL.
+
+### Removed
+- None for the health migration; both Test connection record actions, including on-demand write tests, are retained.
 
 ### Changed
 - Raised the QQQ BOM baseline to released `4.1.0-RC.5` and delegated S3 client construction to core `S3ClientFactory.buildClient`. Removed local HTTP client and trust-manager implementations; existing endpoint, region, addressing, checksum, TLS/CA, credentials and timeout settings remain supported.
