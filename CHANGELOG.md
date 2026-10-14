@@ -15,6 +15,11 @@ All notable changes to this project are documented here. The format follows Keep
 - `ObjectStorageSchema`: PostgreSQL DDL generated from the table metadata.
 - Conformance suite against MinIO and Garage (Testcontainers), service, index and action tests, and the index and actions on PostgreSQL.
 
+### Changed
+- Raised the QQQ BOM baseline to released `4.1.0-RC.5` and delegated S3 client construction to core `S3ClientFactory.buildClient`. Removed local HTTP client and trust-manager implementations; existing endpoint, region, addressing, checksum, TLS/CA, credentials and timeout settings remain supported.
+- Clients remain owned by each connection runtime and are rebuilt on reset/reinstall. Retry behavior now follows core/SDK defaults instead of forcing `ADAPTIVE_V2`; hosts can select the SDK retry mode through `AWS_RETRY_MODE` or `aws.retryMode`.
+- Retained local presigning (including a separate endpoint/key). A request-credentials bridge preserves static session tokens because RC.5 core metadata/factory has no session-token field or credentials-provider hook. This bridge and the existing `${file.PATH}` resolver are marked for removal by RC.7 under issue #10.
+- Added the filesystem module with its unused SFTP/SSH stack excluded. Resolved dependencies otherwise only change QQQ RC.4 to RC.5 and jsoup 1.23.1 to 1.23.2; see [dependency details](docs/S3-FACTORY-MIGRATION.md).
+
 ### Notes
-- Until QQQ core's S3 module on AWS SDK v2 (qqq#1095, RC.5) is released, the qbit uses a small internal SDK v2 client factory.
 - Deliberate differences from the design text: Test connection is two actions (read-only, and with write tests) so the write variant can require `object_storage.admin`; a folder record has no subfolder child list (core does not allow a self join as an exposed join); there is no `withTableNamePrefix` (the `object_storage_` prefix is fixed by the naming rule).
