@@ -24,14 +24,18 @@ package com.kingsrook.qbits.objectstorage;
 import java.util.ArrayList;
 import java.util.List;
 import com.kingsrook.qbits.objectstorage.app.StorageWidgets;
+import com.kingsrook.qbits.objectstorage.health.ObjectStorageConnectionChecks;
 import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.internal.DefaultObjectHeaderPolicy;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qbits.objectstorage.processes.ObjectStorageProcesses;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.health.HealthCheckSupplierMetaData;
+import com.kingsrook.qqq.backend.core.health.HealthChecksMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerMultiOutput;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
@@ -186,6 +190,9 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
          output.add(app);
       }
       output.addSelfToInstance(qInstance);
+      HealthChecksMetaData.ofOrWithNew(qInstance).withSupplier(new HealthCheckSupplierMetaData()
+         .withNamePrefix("object_storage.connection").withComponent("object_storage")
+         .withSupplier(new QCodeReference(ObjectStorageConnectionChecks.class)));
       if(Boolean.TRUE.equals(qBitConfig.getAdminApp()) && qBitConfig.getParentAppName() != null && qInstance.getApp(qBitConfig.getParentAppName()) != null)
       {
          ///////////////////////////////////////////////////////////////////////////////
