@@ -51,6 +51,7 @@ class StandaloneTest
       }
       ObjectStorage.bucket("files").delete(DeleteRequest.of(key));
       assertThat(ObjectStorage.bucket("files").head(key)).isEmpty();
+      assertThat(ObjectStorage.bucket("files").maxUploadBytes()).isEqualTo(ObjectStorage.bucket("files").config().getMaxUploadBytes());
    }
 
 
