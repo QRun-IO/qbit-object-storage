@@ -218,6 +218,11 @@ public class DefaultsChangelogTest
       {
          for(String sql : ObjectStorageSchema.postgresStatements(config()))
          {
+            if(sql.startsWith("DO $$"))
+            {
+               // the foreign-key blocks are PL/pgSQL (Postgres only); PostgresIndexTest runs them on real Postgres
+               continue;
+            }
             statement.execute(sql);
          }
       }
