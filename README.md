@@ -15,7 +15,7 @@ S3-compatible storage as a capability for any QQQ app, and an admin app to run i
 ## Requirements
 
 - Java 21.
-- QQQ 4.1 (built against `4.1.0-RC.4`). Until QQQ core's S3 module on AWS SDK v2 (qqq#1095, RC.5) is released, the qbit carries a small internal SDK v2 client factory (`ConnectionRuntime`); it will be replaced by core's `S3ClientFactory` without changing the public API.
+- QQQ `4.1.0-RC.5` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
 - A QQQ backend for the qbit's tables (PostgreSQL is the intended store). `ObjectStorageSchema.postgresScript(config)` generates the DDL from the same metadata the app runs on, for your Liquibase or Flyway migration.
 
 ## Install
@@ -44,6 +44,8 @@ new ObjectStorageQBitProducer()
 ```
 
 Connections and buckets come from this code only. Secrets are **references** (`${env.X}`, `${prop.X}`, `${file.PATH}`) that must match `allowedSecretRefPatterns` (default `env.S3_*`, `env.STORAGE_*`, `file./var/run/secrets/storage/*`); no table stores a secret value. At startup the qbit upserts one `object_storage_connection` and one `object_storage_bucket` row per entry, so the tables always show the real configuration.
+
+Client settings take effect when the qbit configuration is reinstalled or the runtime is reset. Presigning keeps its separate public endpoint and credentials. Retry behavior now follows core/SDK defaults; hosts requiring adaptive retries can set `AWS_RETRY_MODE=adaptive` or `aws.retryMode=adaptive`. Static session tokens remain supported through a small local bridge pending core support.
 
 ## Use
 

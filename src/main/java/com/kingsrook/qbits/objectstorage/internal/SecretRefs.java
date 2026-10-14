@@ -36,7 +36,8 @@ import com.kingsrook.qqq.backend.core.utils.StringUtils;
  ** the allow-list. Resolved values live only in memory, never in a record, a log
  ** line or a process value.
  **
- ** STAND-IN: ${file.PATH} moves to QMetaDataVariableInterpreter in QQQ core
+ ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.7)
+ ** ${file.PATH} moves to QMetaDataVariableInterpreter in QQQ core
  ** (spec section 8.2); then this class delegates entirely.
  *******************************************************************************/
 public final class SecretRefs
