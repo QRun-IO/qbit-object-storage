@@ -32,7 +32,7 @@ The public qbit configuration API is unchanged.
   retaining their overrides; core still creates the client and HTTP transport.
   Core needs session-token metadata (including enrichment and cache-key support)
   and `AwsSessionCredentials` construction, or a caller-provided credentials hook.
-  Marker: `STAND-IN(core=QRun-IO/qbit-object-storage#10, removeBy=4.1.0-RC.7)`.
+  Marker: `STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.7)`.
 - Core has no presigner factory. The local presigner retains its separate public
   endpoint and least-privilege keys, along with existing session-token handling.
 - `SecretRefs` file resolution is unchanged and carries the same RC.7 marker.
