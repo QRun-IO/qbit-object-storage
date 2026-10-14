@@ -21,7 +21,9 @@
 package com.kingsrook.qbits.objectstorage.internal;
 
 
+import javax.net.ssl.SSLException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -35,6 +37,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import com.kingsrook.qbits.objectstorage.api.Capability;
 import com.kingsrook.qbits.objectstorage.api.CapabilityStatus;
 import com.kingsrook.qbits.objectstorage.api.PresignedPost;
@@ -45,7 +48,9 @@ import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.DelegatingS3Client;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -61,6 +66,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Request;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -79,6 +85,7 @@ public final class CapabilityProbe
    private static final QLogger LOG = QLogger.getLogger(CapabilityProbe.class);
 
    public static final String PROBE_PREFIX = ".qqq-probe/";
+   public static final int CLOCK_SKEW_THRESHOLD_SECONDS = 900;
 
    private static final int MIN_PART_BYTES = 5 * 1024 * 1024;
 
@@ -94,6 +101,17 @@ public final class CapabilityProbe
       private final List<String>                                   problems = new ArrayList<>();
       private Long                                                 clockSkewSeconds;
       private Boolean                                              presignHostReachable;
+      private String                                               problemKind;
+
+
+
+      /*******************************************************************************
+       ** Safe connection failure category, without provider messages or identifiers.
+       *******************************************************************************/
+      public String getProblemKind()
+      {
+         return (problemKind);
+      }
 
 
 
@@ -209,7 +227,7 @@ public final class CapabilityProbe
     *******************************************************************************/
    public static Report probeConnection(String connectionName, boolean includeWrite)
    {
-      details.clear();
+      details.get().clear();
       Report                  report     = new Report();
       ConnectionRuntime       connection = ObjectStorageRuntime.connection(connectionName);
       StorageConnectionConfig config     = connection.getConfig();
@@ -230,7 +248,7 @@ public final class CapabilityProbe
          List<String> notes = new ArrayList<>();
          report.notes.put(bucket.getAlias(), notes);
 
-         readProbes(connection, bucket, results, report);
+         readProbes(connection, bucket, results, report, null);
          recordVersioningState(bucket);
 
          if(includeWrite)
@@ -251,7 +269,7 @@ public final class CapabilityProbe
          }
          for(Map.Entry<Capability, CapabilityStatus> e : results.entrySet())
          {
-            CapabilityStore.record(bucket, e.getKey(), e.getValue(), details.getOrDefault(bucket.getAlias() + ":" + e.getKey(), null));
+            CapabilityStore.record(bucket, e.getKey(), e.getValue(), details.get().getOrDefault(bucket.getAlias() + ":" + e.getKey(), null));
          }
       }
 
@@ -262,7 +280,7 @@ public final class CapabilityProbe
          report.byBucket.get(writable.getAlias()).putAll(presign);
          for(Map.Entry<Capability, CapabilityStatus> e : presign.entrySet())
          {
-            CapabilityStore.record(writable, e.getKey(), e.getValue(), details.get(writable.getAlias() + ":" + e.getKey()));
+            CapabilityStore.record(writable, e.getKey(), e.getValue(), details.get().get(writable.getAlias() + ":" + e.getKey()));
          }
       }
 
@@ -281,7 +299,116 @@ public final class CapabilityProbe
       return (report);
    }
 
-   private static final Map<String, String> details = new java.util.concurrent.ConcurrentHashMap<>();
+   private static final ThreadLocal<Map<String, String>> details = ThreadLocal.withInitial(java.util.HashMap::new);
+
+
+
+   /*******************************************************************************
+    ** Reuse the read probes within a health deadline, without storing diagnostics
+    ** or running write/presign probes. Only the returned report is consumed.
+    *******************************************************************************/
+   public static Report probeConnection(String connectionName, Instant deadline)
+   {
+      try
+      {
+         return (probeReadOnly(connectionName, deadline));
+      }
+      finally
+      {
+         details.remove();
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Run the shared read-only calls without updating capability or bucket rows.
+    *******************************************************************************/
+   private static Report probeReadOnly(String connectionName, Instant deadline)
+   {
+      Report report = new Report();
+      ConnectionRuntime connection = ObjectStorageRuntime.connection(connectionName);
+      for(StorageBucketConfig bucket : ObjectStorageRuntime.getConfig().getBuckets())
+      {
+         if(!connectionName.equals(bucket.getConnection()))
+         {
+            continue;
+         }
+         if(!Instant.now().isBefore(deadline) || Thread.currentThread().isInterrupted())
+         {
+            report.problemKind = "timeout";
+            break;
+         }
+         Map<Capability, CapabilityStatus> results = new EnumMap<>(Capability.class);
+         report.byBucket.put(bucket.getAlias(), results);
+         readProbes(connection, bucket, results, report, deadline);
+      }
+      if(!Instant.now().isBefore(deadline))
+      {
+         report.problemKind = "timeout";
+      }
+      return (report);
+   }
+
+
+
+   /*******************************************************************************
+    ** Classify failures using types and known protocol codes, never message text.
+    *******************************************************************************/
+   public static String problemKind(Throwable error)
+   {
+      for(Throwable cause = error; cause != null; cause = cause.getCause())
+      {
+         if(cause instanceof UnknownHostException)
+         {
+            return ("dns");
+         }
+         if(cause instanceof SSLException)
+         {
+            return ("tls");
+         }
+         String code = ErrorMapper.errorCode(cause);
+         if("RequestTimeTooSkewed".equals(code) || "RequestExpired".equals(code))
+         {
+            return ("clock");
+         }
+         if(cause instanceof S3Exception s3 && (s3.statusCode() == 401 || s3.statusCode() == 403
+            || "InvalidAccessKeyId".equals(code) || "SignatureDoesNotMatch".equals(code)))
+         {
+            return ("auth");
+         }
+      }
+      return ("connection");
+   }
+
+
+
+   /*******************************************************************************
+    ** Bound each SDK call (including retries) by the remaining probe budget.
+    *******************************************************************************/
+   private static S3Client boundedClient(S3Client client, Instant deadline)
+   {
+      return (new DelegatingS3Client(client)
+      {
+         /*******************************************************************************
+          ** Preserve credentials and other overrides while limiting the request.
+          *******************************************************************************/
+         @Override
+         @SuppressWarnings("unchecked") // toBuilder retains the concrete request type.
+         protected <T extends S3Request, ReturnT> ReturnT invokeOperation(T request, Function<T, ReturnT> operation)
+         {
+            Duration remaining = Duration.between(Instant.now(), deadline);
+            if(remaining.isNegative() || remaining.isZero() || Thread.currentThread().isInterrupted())
+            {
+               throw (new IllegalStateException("Storage probe deadline exceeded"));
+            }
+            AwsRequestOverrideConfiguration.Builder overrides = request.overrideConfiguration()
+               .map(AwsRequestOverrideConfiguration::toBuilder).orElseGet(AwsRequestOverrideConfiguration::builder);
+            T bounded = (T) request.toBuilder().overrideConfiguration(overrides.apiCallTimeout(remaining).apiCallAttemptTimeout(remaining).build()).build();
+            return (operation.apply(bounded));
+         }
+      });
+   }
 
 
 
@@ -291,7 +418,7 @@ public final class CapabilityProbe
     *******************************************************************************/
    private static void recordVersioningState(StorageBucketConfig bucket)
    {
-      String seen = details.get(bucket.getAlias() + ":" + Capability.VERSIONING);
+      String seen = details.get().get(bucket.getAlias() + ":" + Capability.VERSIONING);
       if(seen == null || !Db.available(ObjectStorageTables.BUCKET))
       {
          return;
@@ -317,14 +444,14 @@ public final class CapabilityProbe
    /*******************************************************************************
     ** The read-only probes of one bucket.
     *******************************************************************************/
-   private static void readProbes(ConnectionRuntime connection, StorageBucketConfig bucket, Map<Capability, CapabilityStatus> results, Report report)
+   private static void readProbes(ConnectionRuntime connection, StorageBucketConfig bucket, Map<Capability, CapabilityStatus> results, Report report, Instant deadline)
    {
-      S3Client client = connection.client();
+      S3Client client = deadline == null ? connection.client() : boundedClient(connection.client(), deadline);
       String   name   = name(bucket);
       String   alias  = bucket.getAlias();
       String   sampleKey = null;
 
-      try(RateLimiter.Permit ignored = connection.getRateLimiter().acquire())
+      try(RateLimiter.Permit ignored = deadline == null ? connection.getRateLimiter().acquire() : connection.getRateLimiter().acquire(deadline))
       {
          ListObjectsV2Response r = client.listObjectsV2(ListObjectsV2Request.builder().bucket(name).maxKeys(1).build());
          results.put(Capability.LIST_V2, CapabilityStatus.SUPPORTED);
@@ -352,6 +479,7 @@ public final class CapabilityProbe
       {
          results.put(Capability.LIST_V2, classify(alias, Capability.LIST_V2, e));
          report.problems.add(alias + ": listing failed (" + shortMessage(e) + ")");
+         report.problemKind = problemKind(e);
       }
 
       probe(results, alias, Capability.VERSIONING, () ->
@@ -359,10 +487,10 @@ public final class CapabilityProbe
          String status = client.getBucketVersioning(b -> b.bucket(name)).statusAsString();
          if(status == null && ProviderDefaults.defaultStatus(connection.getConfig().getProviderType(), Capability.VERSIONING) == CapabilityStatus.UNSUPPORTED)
          {
-            details.put(alias + ":" + Capability.VERSIONING, "the provider reports versioning off and documents it as a stub");
+            details.get().put(alias + ":" + Capability.VERSIONING, "the provider reports versioning off and documents it as a stub");
             return (CapabilityStatus.UNSUPPORTED);
          }
-         details.put(alias + ":" + Capability.VERSIONING, status == null ? "not enabled" : status);
+         details.get().put(alias + ":" + Capability.VERSIONING, status == null ? "not enabled" : status);
          return (CapabilityStatus.SUPPORTED);
       });
       probe(results, alias, Capability.OBJECT_LOCK, () ->
@@ -376,7 +504,7 @@ public final class CapabilityProbe
          {
             if("ObjectLockConfigurationNotFoundError".equals(ErrorMapper.errorCode(e)))
             {
-               details.put(alias + ":" + Capability.OBJECT_LOCK, "object lock is not enabled on this bucket");
+               details.get().put(alias + ":" + Capability.OBJECT_LOCK, "object lock is not enabled on this bucket");
                return (CapabilityStatus.UNSUPPORTED);
             }
             throw (e);
@@ -391,7 +519,7 @@ public final class CapabilityProbe
       if(key == null)
       {
          results.put(Capability.OBJECT_TAGGING, CapabilityStatus.UNKNOWN);
-         details.put(alias + ":" + Capability.OBJECT_TAGGING, "no object in the bucket to test");
+         details.get().put(alias + ":" + Capability.OBJECT_TAGGING, "no object in the bucket to test");
       }
       else
       {
@@ -505,7 +633,7 @@ public final class CapabilityProbe
             try
             {
                client.putObject(PutObjectRequest.builder().bucket(name).key(key).ifNoneMatch("*").build(), RequestBody.fromString("2"));
-               details.put(alias + ":" + Capability.CONDITIONAL_WRITE, "If-None-Match was ignored");
+               details.get().put(alias + ":" + Capability.CONDITIONAL_WRITE, "If-None-Match was ignored");
                return (CapabilityStatus.UNSUPPORTED);
             }
             catch(S3Exception e)
@@ -564,7 +692,7 @@ public final class CapabilityProbe
             report.presignHostReachable = true;
             if(r.statusCode() == 200 && !"probe".equals(r.body()))
             {
-               details.put(alias + ":" + Capability.PRESIGNED_GET, "the presigned GET returned unexpected content (does it reach the same store?)");
+               details.get().put(alias + ":" + Capability.PRESIGNED_GET, "the presigned GET returned unexpected content (does it reach the same store?)");
                return (CapabilityStatus.UNKNOWN);
             }
             return (httpStatus(alias, Capability.PRESIGNED_GET, r.statusCode(), r.body()));
@@ -618,7 +746,7 @@ public final class CapabilityProbe
       {
          return (CapabilityStatus.SUPPORTED);
       }
-      details.put(alias + ":" + capability, "HTTP " + status + (body == null ? "" : " " + body.replaceAll("\\s+", " ").substring(0, Math.min(200, body.length()))));
+      details.get().put(alias + ":" + capability, "HTTP " + status + (body == null ? "" : " " + body.replaceAll("\\s+", " ").substring(0, Math.min(200, body.length()))));
       if(status == 403)
       {
          return (CapabilityStatus.NOT_PERMITTED);
@@ -669,7 +797,7 @@ public final class CapabilityProbe
    static CapabilityStatus classify(String alias, Capability capability, Exception e)
    {
       String detail = shortMessage(e);
-      details.put(alias + ":" + capability, detail);
+      details.get().put(alias + ":" + capability, detail);
       if(e instanceof S3Exception s3)
       {
          String code = ErrorMapper.errorCode(s3);
