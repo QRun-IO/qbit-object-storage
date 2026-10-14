@@ -36,6 +36,7 @@ import com.kingsrook.qbits.objectstorage.api.StorageException.Reason;
 import com.kingsrook.qbits.objectstorage.config.BucketRole;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.internal.CapabilityStore;
+import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.internal.ConnectionRuntime;
 import com.kingsrook.qbits.objectstorage.internal.ErrorMapper;
 import com.kingsrook.qbits.objectstorage.internal.IndexHook;
@@ -1028,7 +1029,7 @@ public final class StorageBucket
    {
       checkPermission("object_storage.view");
       String key = StorageKeys.normalize(request.getKey());
-      Duration ttl = cap(request.getTtl(), Duration.ofMinutes(5), bucket.getMaxPresignGetSeconds());
+      Duration ttl = cap(request.getTtl(), Duration.ofMinutes(5), ConfigSync.effectiveMaxPresignGetSeconds(bucket));
       countPresign();
       GetObjectRequest.Builder b = GetObjectRequest.builder().bucket(name()).key(key);
       if(StringUtils.hasContent(request.getDownloadAs()))
@@ -1061,7 +1062,7 @@ public final class StorageBucket
       String key = StorageKeys.normalize(rawKey);
       try
       {
-         return (connection.presigner().presignGetObject(GetObjectPresignRequest.builder().signatureDuration(Duration.ofMinutes(5))
+         return (connection.presigner().presignGetObject(GetObjectPresignRequest.builder().signatureDuration(cap(null, Duration.ofMinutes(5), ConfigSync.effectiveMaxPresignGetSeconds(bucket)))
             .getObjectRequest(GetObjectRequest.builder().bucket(name()).key(key).build()).build()).url());
       }
       catch(RuntimeException e)
@@ -1150,7 +1151,7 @@ public final class StorageBucket
    {
       checkPermission("object_storage.write");
       String key = StorageKeys.normalize(request.getKey());
-      Duration ttl = cap(request.getTtl(), Duration.ofMinutes(15), bucket.getMaxPresignPutSeconds());
+      Duration ttl = cap(request.getTtl(), Duration.ofMinutes(15), ConfigSync.effectiveMaxPresignPutSeconds(bucket));
       countPresign();
       PutObjectRequest.Builder b = PutObjectRequest.builder().bucket(name()).key(key);
       if(StringUtils.hasContent(request.getContentType()))
@@ -1192,7 +1193,7 @@ public final class StorageBucket
          throw (new StorageException(Reason.UNSUPPORTED, "Presigned POST is not supported on this provider; verify the size after upload"));
       }
       String key = StorageKeys.normalize(request.getKey());
-      Duration ttl = cap(request.getTtl(), Duration.ofMinutes(15), bucket.getMaxPresignPutSeconds());
+      Duration ttl = cap(request.getTtl(), Duration.ofMinutes(15), ConfigSync.effectiveMaxPresignPutSeconds(bucket));
       countPresign();
       String[] creds = connection.presignCredentials();
       PresignedPost post = PostPolicySigner.sign(creds[0], creds[1], creds[2], creds[3], connection.getConfig().effectiveAddressingStyle(), name(), key,

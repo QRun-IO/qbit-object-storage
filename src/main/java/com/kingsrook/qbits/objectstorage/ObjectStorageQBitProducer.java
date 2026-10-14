@@ -27,6 +27,7 @@ import com.kingsrook.qbits.objectstorage.app.StorageWidgets;
 import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.internal.DefaultObjectHeaderPolicy;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
+import com.kingsrook.qbits.objectstorage.model.ObjectStorageHelp;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qbits.objectstorage.processes.ObjectStorageProcesses;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
@@ -193,6 +194,7 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
          ///////////////////////////////////////////////////////////////////////////////
          qInstance.getApp(qBitConfig.getParentAppName()).withChild(qInstance.getApp(qBitConfig.getAppName()));
       }
+      ObjectStorageHelp.apply(qInstance, qBitConfig);
       return (new MetaDataProducerMultiOutput());
    }
 }

@@ -37,6 +37,7 @@ import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.index.ObjectIndex;
 import com.kingsrook.qbits.objectstorage.index.ReferenceScan;
 import com.kingsrook.qbits.objectstorage.internal.CapabilityStore;
+import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.internal.ConnectionRuntime;
 import com.kingsrook.qbits.objectstorage.internal.Db;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
@@ -689,7 +690,7 @@ public final class BucketProcesses
             request.setContentLength(Long.valueOf(String.valueOf(input.getValue(FIELD_LINK_LENGTH))));
          }
          URL url = ActionSupport.storage(alias).presignPut(request);
-         int minutes = (int) Math.min(ActionSupport.config(alias).getMaxPresignPutSeconds() / 60, 15);
+         int minutes = (int) Math.min(ConfigSync.effectiveMaxPresignPutSeconds(ActionSupport.config(alias)) / 60, 15);
          ProcessSummaryLine line = EtlSupport.text(Status.OK, "Upload link for " + alias + "/" + request.getKey() + " (expires in about " + minutes + " minutes; shown once)");
          line.setBulletsOfText(new ArrayList<>(List.of(url.toString())));
          results.add(line);
