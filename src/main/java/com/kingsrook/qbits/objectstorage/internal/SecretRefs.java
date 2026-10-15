@@ -21,10 +21,6 @@
 package com.kingsrook.qbits.objectstorage.internal;
 
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
 import com.kingsrook.qqq.backend.core.instances.QMetaDataVariableInterpreter;
@@ -32,14 +28,12 @@ import com.kingsrook.qqq.backend.core.utils.StringUtils;
 
 
 /*******************************************************************************
- ** Resolves secret references (${env.X}, ${prop.X}, ${file.PATH}) and enforces
- ** the allow-list. Resolved values live only in memory, never in a record, a log
- ** line or a process value.
- **
- ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.9)
- ** RC.8 QMetaDataVariableInterpreter still supports env/prop, not file references.
- ** ${file.PATH} moves to QMetaDataVariableInterpreter in QQQ core
- ** (spec section 8.2); then this class delegates entirely.
+ ** Enforces the qbit's secret-reference allow-list and resolves references
+ ** (${env.X}, ${prop.X}, ${file.PATH}) through core QMetaDataVariableInterpreter.
+ ** Core reads ${file.PATH} read-only from its allowed roots (default
+ ** /var/run/secrets and /run/secrets; qqq.fileReference.roots or
+ ** QQQ_FILE_REFERENCE_ROOTS). Resolved values live only in memory, never in a
+ ** record, a log line or a process value.
  *******************************************************************************/
 public final class SecretRefs
 {
@@ -93,19 +87,7 @@ public final class SecretRefs
       {
          return (null);
       }
-      String trimmed = ref.trim();
-      if(trimmed.startsWith("${file.") && trimmed.endsWith("}"))
-      {
-         try
-         {
-            return (Files.readString(Path.of(trimmed.substring("${file.".length(), trimmed.length() - 1)), StandardCharsets.UTF_8).trim());
-         }
-         catch(IOException e)
-         {
-            return (null);
-         }
-      }
-      String value = new QMetaDataVariableInterpreter().interpret(trimmed);
+      String value = new QMetaDataVariableInterpreter().interpret(ref.trim());
       return (value == null || value.startsWith("${") ? null : value);
    }
 

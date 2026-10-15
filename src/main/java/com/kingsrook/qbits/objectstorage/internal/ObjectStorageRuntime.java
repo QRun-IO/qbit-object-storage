@@ -33,6 +33,7 @@ import com.kingsrook.qbits.objectstorage.api.StorageAlertSink;
 import com.kingsrook.qbits.objectstorage.api.StorageChangeListener;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 
 
 /*******************************************************************************
@@ -43,9 +44,11 @@ import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
  *******************************************************************************/
 public final class ObjectStorageRuntime
 {
-   private static final Map<String, ConnectionRuntime>   CONNECTIONS = new ConcurrentHashMap<>();
+   private static final Map<String, ConnectionRuntime>   CONNECTIONS = ClusterCaches.nodeLocal(new ConcurrentHashMap<>(),
+      "this node's S3 clients, built from the code config at first use; row overrides apply when a client is built, the same on every node");
    private static final List<StorageChangeListener>      LISTENERS   = new CopyOnWriteArrayList<>();
-   private static final Map<String, String>              PROCESS_PERMISSIONS = new ConcurrentHashMap<>();
+   private static final Map<String, String>              PROCESS_PERMISSIONS = ClusterCaches.nodeLocal(new ConcurrentHashMap<>(),
+      "built from the qbit config at startup, the same on every node");
 
    private static volatile ObjectStorageQBitConfig config;
    private static volatile ObjectHeaderPolicy      headerPolicy;

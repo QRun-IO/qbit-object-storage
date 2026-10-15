@@ -27,9 +27,13 @@ All notable changes to this project are documented here. The format follows Keep
 - Conformance suite against MinIO and Garage (Testcontainers), service, index and action tests, and the index and actions on PostgreSQL.
 
 ### Removed
+- The QRun-IO/qqq#1165 stand-ins: `SessionCredentialsClient` (session tokens now go through core `S3BackendMetaData.sessionToken` / `S3ClientFactory`, including for the presigner) and the file reading in `SecretRefs` (core `QMetaDataVariableInterpreter` resolves `${file.PATH}`). **Behavior change:** core reads `${file.PATH}` only inside its allowed roots, which are `/var/run/secrets` and `/run/secrets` by default. A host that mounts storage secrets elsewhere must set `qqq.fileReference.roots` or `QQQ_FILE_REFERENCE_ROOTS`. The qbit's default allow-list (`file./var/run/secrets/storage/*`) is already inside the default roots.
 - None for the health migration; both Test connection record actions, including on-demand write tests, are retained.
 
 ### Changed
+- Multi-node deployments: the runtime caches are registered with QQQ `ClusterCaches`. Shared (cleared on every node): the bucket rows' presign limits (`qbit-object-storage.bucket-row-limits`, on a bucket row insert or update), the enabled header rules (`qbit-object-storage.header-rules`, on a header rule insert, update or delete), both through the new `ConfigRowChangeCustomizer`, and the capability statuses (`qbit-object-storage.capabilities`: a probe result recorded on one node clears that capability on the others, which reload it from the capability row; before, other nodes kept the old status until restart). The 15 s TTLs remain the safety net. Node-local, with reasons: the alias and connection row-id maps, the S3 client map, the process-permission map, the provider defaults, the running-scan guard and the per-pod presign rate limiter (`StorageBucket.PRESIGN_COUNTS`; per-node rate limits are accepted for now). `ObjectStorageClusterCachesTest` audits the package for unregistered static caches and covers remote and local invalidation.
+- Builds against QQQ `4.1.0-SNAPSHOT` (`qqq.snapshot.version`) for `ClusterCaches` until the next QQQ RC ships; a release must pin that RC.
+- Read the qbit metadata version from the Maven-filtered artifact version so release metadata matches the build and help bundle.
 - Rechecked the released RC.8 JARs: core still has no S3 session-token/provider hook or file-reference interpreter. Retained both compatibility shims and moved their review deadline to RC.9 under issue #10.
 - Raised the QQQ BOM baseline to released `4.1.0-RC.8` for the central health API.
 - Raised the QQQ BOM baseline to released `4.1.0-RC.7` for the core help-bundle registry and coverage assertions.

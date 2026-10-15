@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import com.kingsrook.qbits.objectstorage.ObjectStorageQBitConfig;
+import com.kingsrook.qbits.objectstorage.internal.ConfigRowChangeCustomizer;
 import com.kingsrook.qbits.objectstorage.permissions.ObjectStoragePermissionChecker;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.ChildRecordListRenderer;
@@ -564,7 +565,9 @@ public final class ObjectStorageTables
          .withField(ro("orphanedCount", QFieldType.LONG))
          .withField(ro("orphanedBytes", QFieldType.LONG))
          .withField(ro("missingCount", QFieldType.LONG))
-         .withField(ro("lastReferenceScanDate", QFieldType.DATE_TIME)), KEY_TYPE_BUCKET, "id", false));
+         .withField(ro("lastReferenceScanDate", QFieldType.DATE_TIME)), KEY_TYPE_BUCKET, "id", false)
+         .withCustomizer(TableCustomizers.POST_INSERT_RECORD, new QCodeReference(ConfigRowChangeCustomizer.class))
+         .withCustomizer(TableCustomizers.POST_UPDATE_RECORD, new QCodeReference(ConfigRowChangeCustomizer.class)));
    }
 
 
@@ -701,7 +704,10 @@ public final class ObjectStorageTables
          .withField(str("cacheControl", 300))
          .withField(str("contentDisposition", 300))
          .withField(new QFieldMetaData("priority", QFieldType.INTEGER).withDefaultValue(100))
-         .withField(new QFieldMetaData("enabled", QFieldType.BOOLEAN).withDefaultValue(true)), KEY_TYPE_BUCKET, "bucketId", true));
+         .withField(new QFieldMetaData("enabled", QFieldType.BOOLEAN).withDefaultValue(true)), KEY_TYPE_BUCKET, "bucketId", true)
+         .withCustomizer(TableCustomizers.POST_INSERT_RECORD, new QCodeReference(ConfigRowChangeCustomizer.class))
+         .withCustomizer(TableCustomizers.POST_UPDATE_RECORD, new QCodeReference(ConfigRowChangeCustomizer.class))
+         .withCustomizer(TableCustomizers.POST_DELETE_RECORD, new QCodeReference(ConfigRowChangeCustomizer.class)));
    }
 
 
