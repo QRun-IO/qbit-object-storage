@@ -44,6 +44,10 @@ class ObjectStorageQBitProducerTest
       ObjectStorageQBitConfig config    = new ObjectStorageQBitConfig().withBackendName("rdbms");
       ObjectStorageQBitProducer producer  = new ObjectStorageQBitProducer().withQBitConfig(config).withNamespace("object_storage");
 
+      String artifactVersion = System.getProperty("qbit.artifactVersion");
+      assertThat(artifactVersion).isNotBlank();
+      assertThat(ObjectStorageQBitProducer.VERSION).isEqualTo(artifactVersion);
+      assertThat(producer.getQBitMetaData().getVersion()).isEqualTo(artifactVersion);
       assertThat(producer.isEnabled()).isTrue();
       assertThat(producer.getQBitConfig()).isSameAs(config);
       assertThat(producer.getNamespace()).isEqualTo("object_storage");
