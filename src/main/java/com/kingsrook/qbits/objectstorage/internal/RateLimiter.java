@@ -21,7 +21,10 @@
 package com.kingsrook.qbits.objectstorage.internal;
 
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 
 /*******************************************************************************
@@ -57,16 +60,51 @@ public class RateLimiter
     *******************************************************************************/
    public Permit acquire()
    {
+      return (acquire(null));
+   }
+
+
+
+   /*******************************************************************************
+    ** Wait no later than a caller's deadline, releasing the slot on interruption.
+    *******************************************************************************/
+   public Permit acquire(Instant deadline)
+   {
+      boolean acquired = false;
       try
       {
-         concurrency.acquire();
-         waitForToken();
+         if(deadline == null)
+         {
+            concurrency.acquire();
+            acquired = true;
+         }
+         else
+         {
+            acquired = concurrency.tryAcquire(Math.max(0, Duration.between(Instant.now(), deadline).toNanos()), TimeUnit.NANOSECONDS);
+            if(!acquired)
+            {
+               throw (new IllegalStateException("Storage probe deadline exceeded"));
+            }
+         }
+         waitForToken(deadline);
          return (new Permit(concurrency));
       }
       catch(InterruptedException e)
       {
+         if(acquired)
+         {
+            concurrency.release();
+         }
          Thread.currentThread().interrupt();
          throw (new IllegalStateException("Interrupted while waiting for the storage rate limiter", e));
+      }
+      catch(RuntimeException e)
+      {
+         if(acquired)
+         {
+            concurrency.release();
+         }
+         throw (e);
       }
    }
 
@@ -75,10 +113,14 @@ public class RateLimiter
    /*******************************************************************************
     ** Block until a token is available.
     *******************************************************************************/
-   private void waitForToken() throws InterruptedException
+   private void waitForToken(Instant deadline) throws InterruptedException
    {
       while(true)
       {
+         if(deadline != null && !Instant.now().isBefore(deadline))
+         {
+            throw (new IllegalStateException("Storage probe deadline exceeded"));
+         }
          long sleepMillis;
          synchronized(this)
          {
@@ -93,7 +135,7 @@ public class RateLimiter
             throttledWaits++;
             sleepMillis = Math.max(1, (long) ((1.0 - tokens) / opsPerSecond * 1000));
          }
-         Thread.sleep(sleepMillis);
+         Thread.sleep(deadline == null ? sleepMillis : Math.min(sleepMillis, Math.max(1, Duration.between(Instant.now(), deadline).toMillis())));
       }
    }
 

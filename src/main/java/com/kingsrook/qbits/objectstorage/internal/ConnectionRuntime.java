@@ -291,8 +291,8 @@ public class ConnectionRuntime
 
 
    /*******************************************************************************
-    ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.8)
-    ** RC.7 S3BackendMetaData and S3ClientFactory still lack a session token or
+    ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.9)
+    ** RC.8 S3BackendMetaData and S3ClientFactory still lack a session token or
     ** credentials-provider hook (verified against the released JAR).
     ** Override request credentials only; core still owns the client and transport.
     *******************************************************************************/

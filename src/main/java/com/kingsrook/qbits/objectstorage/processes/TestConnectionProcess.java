@@ -227,7 +227,7 @@ public final class TestConnectionProcess
             }
             if(report.getClockSkewSeconds() != null)
             {
-               boolean skewed = report.getClockSkewSeconds() > 900;
+               boolean skewed = report.getClockSkewSeconds() > CapabilityProbe.CLOCK_SKEW_THRESHOLD_SECONDS;
                ok = ok && !skewed;
                lines.add(new ProcessSummaryLine(skewed ? Status.ERROR : Status.INFO, "Clock skew against the store: " + report.getClockSkewSeconds() + " seconds"
                   + (skewed ? " (SigV4 fails beyond 15 minutes)" : "")));

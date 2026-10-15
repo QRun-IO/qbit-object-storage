@@ -15,7 +15,7 @@ S3-compatible storage as a capability for any QQQ app, and an admin app to run i
 ## Requirements
 
 - Java 21.
-- QQQ `4.1.0-RC.7` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
+- QQQ `4.1.0-RC.8` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
 - A QQQ backend for the qbit's tables (PostgreSQL is the intended store). `ObjectStorageSchema.postgresScript(config)` generates the DDL from the same metadata the app runs on, for your Liquibase or Flyway migration.
 
 ## Install
@@ -91,6 +91,21 @@ Every call is synchronous, rate limited per connection, throws `StorageException
 Every write is a standard streamed ETL: **Review** (the dry run, with summary lines) then **Result**. Deletes are soft wherever the bucket has versioning or a private trash (Restore undoes them); referenced, protected and object-locked objects are skipped and the Review says why; bulk runs are capped at 10,000 objects unless the user has `object_storage.admin`.
 
 Permissions: `object_storage.view`, `.write`, `.delete`, `.admin` (admin implies the rest). Per-bucket scoping uses record security locks on the `object_storage_bucket` and `object_storage_connection` security key types (switch off with `withBucketScoping(false)` for a single-administrator app).
+
+## Health checks
+
+The producer registers `object_storage.connection.<id>` for each configured
+`object_storage_connection` row: **DEPENDENCY**, **STORAGE**, every **300s**,
+with a **20000ms** timeout and component `object_storage`. The central health runner
+refreshes the supplier as rows change. The existing `CapabilityProbe` runs only
+read-only calls within the deadline; it never runs write or presign tests or stores
+free-form capability diagnostics. Connection failures are DOWN, clock skew above
+900 seconds is DEGRADED, and connections without buckets are UNKNOWN. Details
+contain only problem kind, clock skew seconds and bucket count.
+
+Turn a connection's check off or change its interval in the central `health_check`
+table. Both **Test connection** record actions remain available, including
+on-demand write tests.
 
 ## Setup and starter defaults
 
