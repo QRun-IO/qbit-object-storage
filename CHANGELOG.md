@@ -30,6 +30,7 @@ All notable changes to this project are documented here. The format follows Keep
 - None for the health migration; both Test connection record actions, including on-demand write tests, are retained.
 
 ### Changed
+- Read the qbit metadata version from the Maven-filtered artifact version so release metadata matches the build and help bundle.
 - Rechecked the released RC.8 JARs: core still has no S3 session-token/provider hook or file-reference interpreter. Retained both compatibility shims and moved their review deadline to RC.9 under issue #10.
 - Raised the QQQ BOM baseline to released `4.1.0-RC.8` for the central health API.
 - Raised the QQQ BOM baseline to released `4.1.0-RC.7` for the core help-bundle registry and coverage assertions.

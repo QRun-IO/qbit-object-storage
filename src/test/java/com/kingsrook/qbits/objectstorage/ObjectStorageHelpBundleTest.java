@@ -59,7 +59,13 @@ class ObjectStorageHelpBundleTest
 
       assertThat(instance.getTable("helpContent")).isNull();
       assertThat(HelpBundles.of(instance).getBundles()).singleElement()
-         .satisfies(bundle -> assertThat(bundle.getId()).isEqualTo("qbit-object-storage"));
+         .satisfies(bundle ->
+         {
+            assertThat(bundle.getId()).isEqualTo("qbit-object-storage");
+            assertThat(System.getProperty("qbit.artifactVersion")).isNotBlank();
+            assertThat(bundle.getVersion()).isEqualTo(System.getProperty("qbit.artifactVersion"))
+               .isEqualTo(ObjectStorageQBitProducer.VERSION);
+         });
       HelpBundles.syncOnStartup(instance);
       Set<String> keys = HelpBundles.of(instance).getBundles().get(0).getEntries().stream()
          .map(entry -> entry.getKey()).collect(Collectors.toSet());
