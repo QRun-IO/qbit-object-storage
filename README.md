@@ -15,7 +15,7 @@ S3-compatible storage as a capability for any QQQ app, and an admin app to run i
 ## Requirements
 
 - Java 21.
-- QQQ `4.1.0-RC.5` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
+- QQQ `4.1.0-RC.7` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
 - A QQQ backend for the qbit's tables (PostgreSQL is the intended store). `ObjectStorageSchema.postgresScript(config)` generates the DDL from the same metadata the app runs on, for your Liquibase or Flyway migration.
 
 ## Install
@@ -46,6 +46,20 @@ new ObjectStorageQBitProducer()
 Connections and buckets come from this code only. Secrets are **references** (`${env.X}`, `${prop.X}`, `${file.PATH}`) that must match `allowedSecretRefPatterns` (default `env.S3_*`, `env.STORAGE_*`, `file./var/run/secrets/storage/*`); no table stores a secret value. At startup the qbit upserts one `object_storage_connection` and one `object_storage_bucket` row per entry, so the tables always show the real configuration.
 
 Client settings take effect when the qbit configuration is reinstalled or the runtime is reset. Presigning keeps its separate public endpoint and credentials. Retry behavior now follows core/SDK defaults; hosts requiring adaptive retries can set `AWS_RETRY_MODE=adaptive` or `aws.retryMode=adaptive`. Static session tokens remain supported through a small local bridge pending core support.
+
+## In-app help
+
+The producer registers [help/qbit-object-storage.yaml](src/main/resources/help/qbit-object-storage.yaml)
+as a `QBIT` bundle. QQQ syncs it when the host has the help-content tables installed;
+registration is safe without them, and inline table/app help still explains empty lists.
+The bundle version is the literal POM version; update both when releasing.
+
+Hosts can register their own `layer: HOST` bundle with `HelpBundles.register(qInstance, "help/my-host.yaml")`.
+Use the same entry key and role to override qbit text, keeping live `{{...}}` references where useful.
+Hosts that rename the optional Storage app should provide an app entry for their configured name.
+`ObjectStorageHelpBundleTest` checks all owned tables, fields, processes, apps, widgets and
+possible-value sources using `HelpBundleAssertions`, including valid keys, live references and
+plain summaries of at most 120 characters. It runs with `./mvnw verify`.
 
 ## Use
 

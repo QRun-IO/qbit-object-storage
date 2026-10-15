@@ -34,6 +34,7 @@ import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerMultiOutput;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.help.bundles.HelpBundles;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
@@ -194,6 +195,8 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
          ///////////////////////////////////////////////////////////////////////////////
          qInstance.getApp(qBitConfig.getParentAppName()).withChild(qInstance.getApp(qBitConfig.getAppName()));
       }
+      // Registration is metadata-only; core skips startup sync without a helpContent table.
+      HelpBundles.register(qInstance, "help/qbit-object-storage.yaml");
       ObjectStorageHelp.apply(qInstance, qBitConfig);
       return (new MetaDataProducerMultiOutput());
    }

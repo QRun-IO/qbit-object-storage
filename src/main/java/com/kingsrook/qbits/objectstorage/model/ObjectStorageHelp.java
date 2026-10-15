@@ -40,9 +40,8 @@ import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
  ** Applies help/qbit-object-storage.yaml (the QQQ help-bundle format) to the
  ** Storage app and its object_storage_* tables: what each table is for and how
  ** its rows get created, shown on the table screen and when it is empty.
- ** STAND-IN(core=QRun-IO/qqq#1198, removeBy=4.1.0-RC.8): replace with
- ** HelpBundles.register once the pinned QQQ release includes it; the bundle file
- ** stays the same.
+ ** Inline defaults preserve empty-state help for hosts without helpContent.
+ ** The producer also registers the bundle for core sync and HOST overrides.
  *******************************************************************************/
 public final class ObjectStorageHelp
 {
@@ -81,7 +80,7 @@ public final class ObjectStorageHelp
          {
             String key     = entry.path("key").asText();
             String summary = entry.path("summary").asText();
-            if(key.isBlank() || summary.isBlank() || summary.length() > 120 || entry.path("content").asText().isBlank() || entries.put(key, entry) != null)
+            if(key.isBlank() || summary.isBlank() || summary.length() > 120 || entries.put(key, entry) != null)
             {
                throw (new IOException("invalid or duplicate entry: " + key));
             }

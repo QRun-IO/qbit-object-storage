@@ -1,73 +1,1079 @@
 bundle: qbit-object-storage
-version: 1
+version: 0.1.0-SNAPSHOT
 layer: QBIT
-# Help for the Storage app and every object_storage_* table, in the QQQ help-bundle
-# format (qqq#1198). Each table entry says what the table is for and how its rows
-# get created, so an empty table explains itself. ObjectStorageHelp applies it until
-# the core HelpBundles registry ships in a QQQ release (a stand-in until that ships).
-# Summaries stay under 120 characters (ObjectStorageTablesGuardrailTest).
 entries:
-  - key: app:objectStorageAdmin;slot:help
-    summary: "Browse and manage the S3-compatible buckets this application uses, with an index of their objects."
-    content: |
-      The Setup card on the home lists each configuration table with its state and next step. Connections and buckets are declared in code (the qbit config) and appear here after the first start; header rules and protection rules are yours to add; everything else is written by the qbit as it scans and serves.
+- key: app:objectStorageAdmin;slot:help
+  summary: 'Browse and manage your S3-compatible storage: buckets, objects, folders and connections.'
+  content: |
+    Use this app to inspect your stored files and the storage service configuration.
 
-  - key: table:object_storage_connection;slot:help
-    summary: "A connection to an S3-compatible service: endpoint, region, key variable names, limits and timeouts."
-    content: |
-      **How rows get created:** from code. Declare each connection in the qbit config (`withConnection`) and restart; the row is created on first start and its identity fields (endpoint, region, the names of the key variables) are rewritten from code each time. Rate limits and timeouts are yours to edit on the row and are read the next time the connection starts. No key is ever stored, only the names of the variables that hold them. Test connection checks it.
+    - **{{label:object_storage_bucket}}** and **{{label:object_storage_object}}** show what is in each bucket and how healthy it is.
+    - **{{label:object_storage_folder}}** gives a folder view of an indexed bucket.
+    - **{{label:object_storage_connection}}** shows the storage server, its settings and the result of the last test.
+    - **{{label:object_storage_operation}}** is the log of every write.
+    - **{{label:object_storage_header_rule}}** and **{{label:object_storage_protection_rule}}** control cache headers and what may be deleted.
 
-  - key: table:object_storage_connection_capability;slot:help
-    summary: "What a connection's provider supports (versioning, presigned POST, multipart and more), probed or assumed."
-    content: |
-      **How rows get created:** written by the qbit when a connection is tested (Test connection), starting from the provider defaults. Empty means the connection has not been probed yet. You do not edit these.
+    Use the **Setup** card to check which configuration records are present and what to configure next.
 
-  - key: table:object_storage_bucket;slot:help
-    summary: "A bucket the application uses by alias: role, indexing, trash, public URL and presign limits."
-    content: |
-      **How rows get created:** from code. Declare each bucket in the qbit config (`withBucket`: alias, connection, bucket name, role) and restart; the row is created on first start and its identity (role, public base URL, trash location) is rewritten from code each time. The presign limits (maximum seconds for download and upload links) can be lowered on the row: the effective limit is the smaller of the code config and the row, and a change applies within about 15 seconds. The row cannot raise the code limit. Rescan bucket, Check configuration and Apply header policy are record actions.
+    Connections and buckets come from the server's configuration, so their addresses and credential references are read-only here. Viewing needs the storage view permission; changing settings and rules, and running most actions, needs the storage admin permission. Nothing here ever shows a secret value.
+- key: table:object_storage_connection;slot:help
+  summary: One S3-compatible storage server with its endpoint, signing settings, limits and last test result.
+  content: |
+    A connection is the storage server your buckets live on. It is created from the server configuration at startup and refreshed each time the app starts, so the address, region, signing and credential reference fields are read-only.
 
-  - key: table:object_storage_bucket_capability;slot:help
-    summary: "What a bucket supports (versioning, object lock, lifecycle, CORS and more), probed from the provider."
-    content: |
-      **How rows get created:** written by the qbit when a connection is tested or a bucket's configuration is checked (Test connection, Check configuration). Empty means the bucket has not been checked yet. You do not edit these.
+    You can change only the limits: operations per second, concurrency and the two timeouts. Changing them needs the storage admin permission, and they apply the next time the app sets up the connection.
 
-  - key: table:object_storage_folder;slot:help
-    summary: "The folder tree of an indexed bucket, with object counts and sizes."
-    content: |
-      **How rows get created:** written by the qbit while it scans an indexed bucket and as objects are written through it. Empty means no indexed bucket has been scanned yet: run Rescan bucket on the bucket, or wait for the nightly job. Uploading files to a new folder path also creates it.
+    Use the **{{label:objectStorageTestConnection}}** action to check what the server can do. **{{label:objectStorageTestConnectionWithWriteTests}}** also writes, copies and deletes a small probe file in each unprotected bucket, so it needs the storage admin permission. The results appear under **Capabilities** and in the **Last test** group.
 
-  - key: table:object_storage_object;slot:help
-    summary: "The searchable index of every object in the indexed buckets: key, size, type, headers and references."
-    content: |
-      **How rows get created:** written by the qbit: a full scan lists each indexed bucket (Rescan bucket, and nightly), and uploads, copies, moves and deletes made through the qbit update it at once. Empty means no indexed bucket has been scanned yet. Objects changed outside QQQ appear at the next scan. Record actions create download links, copy, move, delete and restore.
+    See also **{{label:object_storage_bucket}}**.
+    **How rows get created:** Your administrator declares connections in the server configuration. They appear when configuration is synchronized; you can edit limits and timeouts.
 
-  - key: table:object_storage_object_version;slot:help
-    summary: "Reserved for per-object version history. Not used yet: nothing writes it."
-    content: |
-      **How rows get created:** they do not yet. The index lists only the current version of each object, so this table is always empty and is reserved for a later release that indexes version history. A versioned bucket still keeps its versions at the provider; deleting through the qbit writes a delete marker there.
+- key: table:object_storage_connection;section:identity
+  summary: The connection's name, where its settings come from and what kind of server it is.
+- key: table:object_storage_connection;section:endpoint_and_signing
+  summary: The server address and the settings used to sign requests to it. Read-only, set by the server configuration.
+- key: table:object_storage_connection;section:credentials_references_only_never_values_
+  summary: Names of the settings that hold the access keys. The keys themselves are never stored or shown here.
+- key: table:object_storage_connection;section:limits_editable_with_object_storage_admin_
+  summary: Request rate, concurrency and timeouts for this connection. Editing needs the storage admin permission.
+- key: table:object_storage_connection;section:last_test
+  summary: When the connection was last tested and what the test found.
+- key: table:object_storage_connection;section:dates
+  summary: When the record was created and last changed.
+- key: table:object_storage_connection;section:object_storage_connection_connectionId_object_storage_bucket
+  summary: The buckets that live on this connection.
+- key: table:object_storage_connection;section:object_storage_connection_connectionId_object_storage_connection_capability
+  summary: What the last test found this server can and cannot do.
+- key: table:object_storage_connection;field:name
+  summary: The short name the server configuration uses for this connection.
+- key: table:object_storage_connection;field:source
+  summary: Where the connection comes from.
+  content: |
+    **Config** means it is defined in the server configuration and is read-only here. **Ui** means it was created in the app.
+- key: table:object_storage_connection;field:providerType
+  summary: The brand of storage server, which sets what features are assumed before a test.
+  content: |
+    Values: **Aws S3**, **Minio**, **Cloudflare R2**, **Backblaze B2**, **Wasabi**, **Do Spaces** (DigitalOcean Spaces), **Ceph Rgw**, **Garage** and **Other**. Before the first test the app assumes the usual features for that brand; a test replaces the assumptions with what it actually finds.
+- key: table:object_storage_connection;field:endpoint
+  summary: The address the app uses to reach the storage server.
+- key: table:object_storage_connection;field:presignEndpoint
+  summary: The public address put into upload and download links, when it differs from the server address.
+  content: |
+    Browsers use this host for presigned links, so it must be reachable from by the clients using the links. Empty means links use the main endpoint.
+- key: table:object_storage_connection;field:region
+  summary: The region name sent when signing requests.
+- key: table:object_storage_connection;field:addressingStyle
+  summary: How the bucket name is put into the address.
+  content: |
+    **PATH** puts it after the host (host/bucket/key). **VIRTUAL_HOST** puts it in the host name (bucket.host/key).
+- key: table:object_storage_connection;field:signatureVersion
+  summary: The version of the request signing scheme used with the server.
+- key: table:object_storage_connection;field:checksumMode
+  summary: When integrity checksums are added to requests.
+  content: |
+    **WHEN_REQUIRED** adds them only where the server insists, which suits older S3-compatible servers. **WHEN_SUPPORTED** adds them whenever possible.
+- key: table:object_storage_connection;field:payloadSigning
+  summary: Whether uploaded file contents are signed.
+  content: |
+    **SIGNED** signs the contents. **UNSIGNED_OVER_TLS** skips content signing and relies on the encrypted connection.
+- key: table:object_storage_connection;field:tlsVerify
+  summary: Whether the server's TLS certificate is checked. Switching it off is only for test servers.
+- key: table:object_storage_connection;field:credentialsMode
+  summary: How the app finds its access keys.
+  content: |
+    **STATIC_REFS** reads a fixed key pair from named settings. **DEFAULT_CHAIN** uses the standard AWS lookup. **WEB_IDENTITY** uses a web identity token.
+- key: table:object_storage_connection;field:accessKeyRef
+  summary: The name of the setting that holds the access key ID. The key itself is not shown.
+- key: table:object_storage_connection;field:secretKeyRef
+  summary: The name of the setting that holds the secret key. The key itself is not shown.
+- key: table:object_storage_connection;field:presignAccessKeyRef
+  summary: The name of the setting that holds the access key ID used only for signing upload and download links.
+  content: |
+    A separate, least-privilege key is safer because the key ID is visible in every presigned link.
+- key: table:object_storage_connection;field:presignSecretKeyRef
+  summary: The name of the setting that holds the secret for the link-signing key. The secret itself is not shown.
+- key: table:object_storage_connection;field:credentialsResolved
+  summary: Yes when the app found values for the main access key settings. Filled in at startup.
+  content: |
+    If it is No, the app cannot sign in to the storage server until the named settings are provided.
+- key: table:object_storage_connection;field:presignKeyConfigured
+  summary: Yes when a separate least-privilege key is set for signing upload and download links.
+- key: table:object_storage_connection;field:presignWarning
+  summary: A warning shown when links are signed with the main key instead of a separate one.
+  content: |
+    It appears when no separate link-signing key is set and the connection has a public link address or a public or incoming bucket. Blank means no issue.
+- key: table:object_storage_connection;field:adminApiType
+  summary: Which optional server admin interface the connection is set up for.
+  content: |
+    Values: **NONE**, **MINIO_ADMIN**, **GARAGE_ADMIN**.
+- key: table:object_storage_connection;field:maxOpsPerSecond
+  summary: "The most requests per second the app sends to this server."
+  content: |
+    The most requests per second the app sends to this server. Default {{default:object_storage_connection.maxOpsPerSecond}}.
 
-  - key: table:object_storage_object_reference;slot:help
-    summary: "Which application records point at which objects, to find orphaned and missing files."
-    content: |
-      **How rows get created:** written by the reference scan when a bucket is marked `referenceTracked` and the host registers a reference provider (for example `FieldReferenceProvider` for a table field that holds a key). Empty means no reference provider is registered or no scan has run, so orphaned and missing counts are not available.
+    Lower it if the server struggles. Editing needs the storage admin permission.
+- key: table:object_storage_connection;field:maxConcurrency
+  summary: The most requests in flight at once to this server. Default {{default:object_storage_connection.maxConcurrency}}.
+- key: table:object_storage_connection;field:connectTimeoutMs
+  summary: "How long to wait to connect to the server, in milliseconds."
+  content: |
+    How long to wait to connect to the server, in milliseconds. Default {{default:object_storage_connection.connectTimeoutMs}}.
+- key: table:object_storage_connection;field:readTimeoutMs
+  summary: How long to wait for a server response, in milliseconds. Default {{default:object_storage_connection.readTimeoutMs}}.
+- key: table:object_storage_connection;field:lastTestedAt
+  summary: When a Test connection action last finished. Filled in by that action.
+- key: table:object_storage_connection;field:lastTestStatus
+  summary: The overall outcome of the last test.
+  content: |
+    **OK** means no problems were found; **PROBLEMS** means at least one check failed. Filled in by the test action.
+- key: table:object_storage_connection;field:lastTestSummary
+  summary: A readable summary of the last test, with one line per bucket. Filled in by the test action.
+- key: table:object_storage_connection;field:clockSkewSeconds
+  summary: How far, in seconds, the server's clock differs from the app's at the last test.
+  content: |
+    Signed requests are refused when the clocks drift too far apart, so a large number needs fixing. Filled in by the test action.
+- key: table:object_storage_connection;field:settingsHash
+  summary: A short fingerprint of the connection settings, used to tell when they changed. Filled in automatically.
+- key: table:object_storage_connection_capability;slot:help
+  summary: One feature of a storage server, such as versioning or presigned links, and whether it works.
+  content: |
+    Each row is one feature and its status on this server. Before the first test the status is an assumption based on the server brand; running **{{label:objectStorageTestConnection}}** on the **{{label:object_storage_connection}}** replaces it with what the probe actually found. The app uses these answers to decide which actions to offer and how to behave, for example whether deletes can be undone.
 
-  - key: table:object_storage_header_rule;slot:help
-    summary: "Cache-Control and Content-Disposition rules by key pattern and type, first match by priority wins."
-    content: |
-      **How rows get created:** an administrator adds them with New, or the qbit's starter changelog adds a disabled `default-mutable` rule (all keys, one hour) that you can enable and edit. Only enabled rules are used, lowest priority number first. A rule can be limited to one bucket. They set the headers on every upload and on Apply header policy. If the host configures its own header policy in code, these rows are not read. Backup buckets are never touched.
+    These rows are read-only and are written only by the test actions. See also **{{label:object_storage_bucket_capability}}** for results that depend on a single bucket.
+    **How rows get created:** Run **{{label:objectStorageTestConnection}}** to populate these read-only results. An empty list means no results have been recorded.
 
-  - key: table:object_storage_protection_rule;slot:help
-    summary: "Make a bucket prefix read-only or delete-proof, or only warn when it is changed."
-    content: |
-      **How rows get created:** an administrator adds one with New: pick the bucket (required), a prefix pattern and a mode (Read only, No delete or Warn). Empty is fine: no prefix is protected until you add a rule. Enabled rules are checked on every write and delete made through the qbit.
+- key: table:object_storage_connection_capability;section:identity
+  summary: Which connection and which feature this row describes.
+- key: table:object_storage_connection_capability;section:detail
+  summary: The status of the feature, how it was determined and any note from the probe.
+- key: table:object_storage_connection_capability;section:dates
+  summary: When the record was created and last changed.
+- key: table:object_storage_connection_capability;field:connectionId
+  summary: The storage connection this result belongs to.
+- key: table:object_storage_connection_capability;field:capability
+  summary: The storage feature being described.
+  content: |
+    Values: **List V2** (listing objects), **Put Get Delete** (basic read and write), **Copy Replace Metadata** (changing headers by copying an object onto itself), **Batch Delete**, **Multipart** (large uploads), **Presigned Get**, **Presigned Put**, **Presigned Post** (temporary download and upload links), **Conditional Write**, **Versioning**, **Object Lock**, **Lifecycle** (automatic expiry rules), **Bucket Policy**, **Cors**, **Object Tagging**, **Acl**, **Usage Admin Api** and **Quota Admin Api** (server admin figures).
+- key: table:object_storage_connection_capability;field:status
+  summary: Whether the feature works on this server.
+  content: |
+    **Supported**: works. **Unsupported**: the server does not offer it. **Not Permitted**: the server offers it but the app's key is not allowed to use it. **Partial**: works with limits. **Unknown**: not yet tested and not certain from the server brand.
+- key: table:object_storage_connection_capability;field:detail
+  summary: A note from the probe about what it saw, for example why a feature is not permitted.
+- key: table:object_storage_connection_capability;field:source
+  summary: How the status was decided.
+  content: |
+    **Default** is an assumption from the server brand. **Probe** is what a test actually found. **Override** is a value set explicitly rather than tested.
+- key: table:object_storage_connection_capability;field:probedAt
+  summary: When this feature was last tested. Empty while the status is still only an assumption.
+- key: table:object_storage_bucket;slot:help
+  summary: 'One storage bucket: its role, observed settings, scan health and limits, with its folders and objects underneath.'
+  content: |
+    A bucket is a named container for files on a storage connection. Your administrator configures its role, indexing and reference tracking.
 
-  - key: table:object_storage_operation;slot:help
-    summary: "The log of every write, delete, link and scan the qbit performed, with who, what and the result."
-    content: |
-      **How rows get created:** written by the qbit on every operation. Empty means nothing has been done through the qbit yet. Presigned URLs are never logged, only the key, the expiry and who asked.
+    Buckets are created from the server configuration, so name, role and addresses are read-only. You can edit the maximum link lifetimes, the orphan alert threshold and the quota, which needs the storage admin permission.
 
-  - key: table:object_storage_usage_daily;slot:help
-    summary: "A daily snapshot of object count and bytes per indexed bucket, for the usage trend."
-    content: |
-      **How rows get created:** written by the nightly job, one row per indexed bucket per day. Empty means the nightly job has not run yet, or no bucket is indexed.
+    Record actions: **{{label:objectStorageRescanBucket}}** (re-reads the index and counts), **{{label:objectStorageCheckConfiguration}}** (reads versioning, lifecycle, policy and CORS from the server and notes any difference from the intended setup), **Apply header policy** and **{{label:objectStorageCreateUploadLink}}**. Scans run only when you start them here, unless a scheduled scan has been set up.
+
+    See also **{{label:object_storage_object}}**, **{{label:object_storage_folder}}** and **{{label:object_storage_operation}}**.
+    **How rows get created:** Your administrator declares buckets in the server configuration. You can lower link lifetime limits here; they cannot exceed the configured limits and take effect within about 15 seconds.
+
+- key: table:object_storage_bucket;section:identity
+  summary: The bucket's alias, connection, real name on the server, role and who manages it.
+- key: table:object_storage_bucket;section:observed_settings
+  summary: What the server reports for the bucket (versioning, expiry rules, policy, CORS), as of the last configuration check.
+- key: table:object_storage_bucket;section:index_and_health
+  summary: How many objects and bytes the index holds, when it was last scanned, and the orphaned and missing counts.
+- key: table:object_storage_bucket;section:settings
+  summary: Public address, trash settings, link lifetimes, orphan alert threshold and quota for this bucket.
+- key: table:object_storage_bucket;section:dates
+  summary: When the record was created and last changed.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_bucket_capability
+  summary: What the last test found this bucket can and cannot do.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_folder
+  summary: The folders found in this bucket.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_object
+  summary: The objects (files) in this bucket.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_object_reference
+  summary: The places in your application that point at files in this bucket.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_usage_daily
+  summary: Daily snapshots of this bucket's object count and size.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_operation
+  summary: The log of writes made to this bucket.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_header_rule
+  summary: Cache and download header rules that apply to this bucket.
+- key: table:object_storage_bucket;section:object_storage_bucket_bucketId_object_storage_protection_rule
+  summary: Rules that protect parts of this bucket from changes or deletes.
+- key: table:object_storage_bucket;field:alias
+  summary: The alias your application uses to identify this bucket.
+- key: table:object_storage_bucket;field:connectionId
+  summary: The storage connection (server) this bucket lives on.
+- key: table:object_storage_bucket;field:bucketName
+  summary: The bucket's real name on the storage server.
+- key: table:object_storage_bucket;field:source
+  summary: Where the bucket comes from.
+  content: |
+    **Config** means it is defined in the server configuration and is read-only here. **Ui** means it was created in the app.
+- key: table:object_storage_bucket;field:role
+  summary: What the bucket is for, which drives how it is treated.
+  content: |
+    **Public**: files served to visitors; cache headers are managed and a public address is set. **Private**: internal files. **Incoming**: where uploads arrive before processing. **Backup**: backups; never scanned for orphans and outside the header policy.
+- key: table:object_storage_bucket;field:publicBaseUrl
+  summary: The public web address that files in this bucket are served from.
+- key: table:object_storage_bucket;field:indexed
+  summary: Yes when the app keeps a searchable list of every object in the bucket.
+  content: |
+    Only indexed buckets have **{{label:object_storage_object}}** and **{{label:object_storage_folder}}** records. Unindexed buckets (incoming, backups) still log writes.
+- key: table:object_storage_bucket;field:managedBy
+  summary: Who is meant to change the bucket's server-side settings.
+  content: |
+    **Iac** means they are set in infrastructure code, so the configuration check flags differences as drift. **Ui** means they are managed from the app.
+- key: table:object_storage_bucket;field:trashBucketAlias
+  summary: The bucket that holds deleted objects until they are purged. Empty means deletes are not moved to a trash.
+  content: |
+    When set, deleted objects are moved there under the trash prefix so **{{label:objectStorageRestoreObjects}}** can bring them back.
+- key: table:object_storage_bucket;field:trashPrefix
+  summary: The folder path deleted objects are moved under in the trash bucket.
+- key: table:object_storage_bucket;field:maxPresignGetSeconds
+  summary: "The longest, in seconds, a temporary download link for this bucket may stay valid."
+  content: |
+    The longest, in seconds, a temporary download link for this bucket may stay valid. Default {{default:object_storage_bucket.maxPresignGetSeconds}}.
+
+    Editing needs the storage admin permission.
+- key: table:object_storage_bucket;field:maxPresignPutSeconds
+  summary: "The longest, in seconds, a temporary upload link for this bucket may stay valid."
+  content: |
+    The longest, in seconds, a temporary upload link for this bucket may stay valid. Default {{default:object_storage_bucket.maxPresignPutSeconds}}.
+
+    Editing needs the storage admin permission.
+- key: table:object_storage_bucket;field:referenceTracked
+  summary: Yes when the app checks which files your application still uses, to find orphaned and missing files.
+  content: |
+    Your administrator enables tracking per bucket and configures providers to find references in your application records.
+- key: table:object_storage_bucket;field:orphanCountAlertThreshold
+  summary: Raises a warning when the orphaned file count goes above this number. Leave empty for no warning.
+  content: |
+    An orphan is a file in the bucket that nothing in your application refers to. The warning goes to the alert feed when one is connected; the count itself is always visible under **Index and health**.
+- key: table:object_storage_bucket;field:quotaBytes
+  summary: A size limit for the bucket, in bytes, used only for warnings. Leave empty for none.
+  content: |
+    It does not stop uploads. When the bucket reaches 80% of the quota the daily usage snapshot raises a warning, and a stronger one at 95%, if an alert feed is connected.
+- key: table:object_storage_bucket;field:versioningState
+  summary: Whether the server keeps old versions of changed or deleted objects.
+  content: |
+    Values seen: **Enabled**, **Suspended**, **Off**, or **not supported**. Filled in by the **{{label:objectStorageCheckConfiguration}}** action.
+- key: table:object_storage_bucket;field:lifecycleSummary
+  summary: The bucket's automatic expiry and transition rules, as read from the server at the last check.
+- key: table:object_storage_bucket;field:policySummary
+  summary: The bucket's access policy, as read from the server at the last check.
+- key: table:object_storage_bucket;field:corsSummary
+  summary: The bucket's cross-origin rules (which sites may fetch files directly), as read at the last check.
+- key: table:object_storage_bucket;field:configDriftNote
+  summary: Differences found between the server's actual settings and the intended ones. Blank when they match.
+  content: |
+    Filled in by **{{label:objectStorageCheckConfiguration}}**. Differences also show on the storage home.
+- key: table:object_storage_bucket;field:objectCount
+  summary: How many live objects the index holds for this bucket. Updated by each scan.
+- key: table:object_storage_bucket;field:totalBytes
+  summary: The combined size of the indexed objects, in bytes. Updated by each scan.
+- key: table:object_storage_bucket;field:lastScanDate
+  summary: When the last scan finished. Empty if it has never completed.
+- key: table:object_storage_bucket;field:lastScanStatus
+  summary: The state of the last scan. Set by Rescan bucket.
+  content: |
+    Values: **OK** (finished), **RUNNING**, **Failed**, **CAP_REACHED** (stopped at the safety limit on objects per scan) and **STOPPED_SAFETY** (stopped because too many objects looked deleted). A running or failed scan resumes from where it stopped the next time it runs.
+- key: table:object_storage_bucket;field:scanGeneration
+  summary: Goes up with each full scan, to spot objects that disappeared from the bucket. Filled in automatically.
+- key: table:object_storage_bucket;field:scanCursor
+  summary: Where an interrupted scan will pick up again. Filled in automatically and cleared when a scan completes.
+- key: table:object_storage_bucket;field:headersKnownCount
+  summary: How many objects have had their cache and download headers read from the server.
+  content: |
+    Headers need a separate lookup per object, so this catches up gradually after a scan.
+- key: table:object_storage_bucket;field:headersMatchingPolicyCount
+  summary: How many of those objects have the headers the header policy asks for.
+  content: |
+    Compare with **{{label:object_storage_bucket.headersKnownCount}}**; use **Apply header policy** to fix the rest.
+- key: table:object_storage_bucket;field:orphanedCount
+  summary: The number of files in the bucket that nothing in your application refers to. Filled in by the reference scan.
+  content: |
+    Some folders are exempt. Backup buckets are never counted. Check an orphan before deleting it.
+- key: table:object_storage_bucket;field:orphanedBytes
+  summary: The combined size, in bytes, of the orphaned files.
+- key: table:object_storage_bucket;field:missingCount
+  summary: The number of references in your application that point at a file which is not in the bucket.
+  content: |
+    These are likely broken images or downloads. See **References** for which records.
+- key: table:object_storage_bucket;field:lastReferenceScanDate
+  summary: When your application's references were last compared against the bucket. Filled in automatically after a scan.
+- key: table:object_storage_bucket_capability;slot:help
+  summary: One feature of a bucket, such as versioning or lifecycle rules, and whether it works there.
+  content: |
+    Like **{{label:object_storage_connection_capability}}**, but for features that depend on the individual bucket. Statuses start as assumptions from the server brand and are replaced by what **{{label:objectStorageTestConnection}}** finds. The app uses them to decide, for example, whether deletes are soft and whether header changes can be done by copying.
+
+    These rows are read-only and written only by the test actions.
+    **How rows get created:** Run **{{label:objectStorageTestConnection}}** or **{{label:objectStorageCheckConfiguration}}** to populate the observed capabilities.
+
+- key: table:object_storage_bucket_capability;section:identity
+  summary: Which bucket and which feature this row describes.
+- key: table:object_storage_bucket_capability;section:detail
+  summary: The status of the feature, how it was determined and any note from the probe.
+- key: table:object_storage_bucket_capability;section:dates
+  summary: When the record was created and last changed.
+- key: table:object_storage_bucket_capability;field:bucketId
+  summary: The bucket this result belongs to.
+- key: table:object_storage_bucket_capability;field:capability
+  summary: The storage feature being described.
+  content: |
+    Values: **List V2**, **Put Get Delete**, **Copy Replace Metadata**, **Batch Delete**, **Multipart**, **Presigned Get**, **Presigned Put**, **Presigned Post**, **Conditional Write**, **Versioning**, **Object Lock**, **Lifecycle**, **Bucket Policy**, **Cors**, **Object Tagging**, **Acl**, **Usage Admin Api**, **Quota Admin Api**. See **{{label:object_storage_connection_capability}}** for what each means.
+- key: table:object_storage_bucket_capability;field:status
+  summary: Whether the feature works for this bucket.
+  content: |
+    **Supported**, **Unsupported**, **Not Permitted** (offered but the app's key may not use it), **Partial** (works with limits) or **Unknown** (not tested yet).
+- key: table:object_storage_bucket_capability;field:detail
+  summary: A note from the probe about what it saw for this bucket.
+- key: table:object_storage_bucket_capability;field:source
+  summary: 'How the status was decided: Default (from the server brand), Probe (tested) or Override (set by hand).'
+- key: table:object_storage_bucket_capability;field:probedAt
+  summary: When this feature was last tested. Empty while the status is still only an assumption.
+- key: table:object_storage_folder;slot:help
+  summary: A folder (key prefix) in an indexed bucket, with the number and size of the files under it.
+  content: |
+    Storage has no real folders; a folder here is a shared start of file names, such as media/42/. The app builds this tree from the object index each time a bucket is scanned, so it only exists for indexed buckets, and the totals are as fresh as the last scan or the last change made through the app.
+
+    Folders are read-only. Folder actions, such as **{{label:objectStorageRenameFolder}}**, **{{label:objectStorageDeleteFolder}}** and **{{label:objectStorageUploadToFolder}}**, do the changing and write to **{{label:object_storage_operation}}**. Referenced, protected or locked files are skipped by deletes and moves.
+
+    See also **{{label:object_storage_object}}** and **{{label:object_storage_bucket}}**.
+    **How rows get created:** Scan an indexed bucket or write files through the storage service. An empty list can mean the bucket has not been scanned yet.
+
+- key: table:object_storage_folder;section:identity
+  summary: The folder's bucket, parent, path, name and totals.
+- key: table:object_storage_folder;section:dates
+  summary: When the record was created and last changed.
+- key: table:object_storage_folder;section:object_storage_folder_folderId_object_storage_object
+  summary: The files directly in this folder.
+- key: table:object_storage_folder;field:bucketId
+  summary: The bucket this folder is in.
+- key: table:object_storage_folder;field:parentFolderId
+  summary: The folder one level up. Empty for a top-level folder.
+- key: table:object_storage_folder;field:path
+  summary: The full folder path from the bucket root, ending in a slash, such as media/42/.
+- key: table:object_storage_folder;field:name
+  summary: The last part of the path, without the slashes.
+- key: table:object_storage_folder;field:objectCount
+  summary: How many live files are in this folder and in the folders below it.
+- key: table:object_storage_folder;field:totalBytes
+  summary: The combined size, in bytes, of the files in this folder and below.
+- key: table:object_storage_folder;field:newestChange
+  summary: The most recent change time among the files in this folder and below.
+- key: table:object_storage_object;slot:help
+  summary: One file in an indexed bucket, with its size, headers, tags, versions and where your application uses it.
+  content: |
+    This is the app's copy of what is in the bucket. It is filled in by bucket scans and kept up to date when you change a file through the app, so a file added directly to the server can take until the next scan to appear. Use **{{label:objectStorageRefreshObjects}}** on a record to re-read it now.
+
+    Records are read-only; use the actions to change things: **{{label:objectStorageChangeHeaders}}**, **{{label:objectStorageEditTags}}**, **{{label:objectStorageApplyHeaderPolicy}}**, **{{label:objectStorageCopyObjects}}**, **{{label:objectStorageMoveObjects}}**, **{{label:objectStorageDeleteObjects}}**, **{{label:objectStorageRestoreObjects}}** and **{{label:objectStorageCreateDownloadLink}}**. Review the proposed changes before continuing. Each action reports files it skips; deletion and moves protect referenced files. Bulk writes above the configured limit require the storage admin permission.
+
+    The **{{label:object_storage_object.previewUrl}}** column shows a thumbnail built from a short-lived link. See also **{{label:object_storage_folder}}** and **{{label:object_storage_operation}}**.
+    **How rows get created:** Run **{{label:objectStorageRescanBucket}}** to index a bucket. Writes through the storage service also update the index; external changes appear on the next scan.
+
+- key: table:object_storage_object;section:identity
+  summary: The file's bucket, folder, full key, name and the usage counts.
+- key: table:object_storage_object;section:headers_and_metadata
+  summary: The file's content type, cache and download headers, custom metadata and tags.
+- key: table:object_storage_object;section:storage
+  summary: 'Storage-level details: name, extension, etag, storage class, version and delete state.'
+- key: table:object_storage_object;section:dates
+  summary: When the record was created and last changed.
+- key: table:object_storage_object;section:object_storage_object_objectId_object_storage_object_version
+  summary: Older versions and delete markers of this file, when the bucket keeps versions.
+- key: table:object_storage_object;section:object_storage_object_objectId_object_storage_object_reference
+  summary: The records in your application that use this file.
+- key: table:object_storage_object;field:bucketId
+  summary: The bucket this file is in.
+- key: table:object_storage_object;field:folderId
+  summary: The folder this file is directly in.
+- key: table:object_storage_object;field:objectKey
+  summary: The file's full name in the bucket, including its folders, such as media/42/hero.jpg.
+  content: |
+    This is the unique address of the file inside its bucket; renaming means copying to a new key and removing the old one.
+- key: table:object_storage_object;field:name
+  summary: The file name without its folders.
+- key: table:object_storage_object;field:extension
+  summary: The file type ending, lowercase and without the dot. Blank when the name has none.
+- key: table:object_storage_object;field:size
+  summary: The file size in bytes.
+- key: table:object_storage_object;field:contentType
+  summary: The file's MIME type, such as image/jpeg, as browsers receive it.
+  content: |
+    Read from the server for each file, so it can be blank until the headers have been read.
+- key: table:object_storage_object;field:etag
+  summary: The server's fingerprint of the file contents. It changes when the file changes.
+- key: table:object_storage_object;field:lastModified
+  summary: When the file was last changed in the bucket.
+- key: table:object_storage_object;field:storageClass
+  summary: The storage tier the server reports for the file, such as STANDARD.
+- key: table:object_storage_object;field:cacheControl
+  summary: The Cache-Control header served with the file; it tells browsers and the CDN how long to keep it.
+  content: |
+    Blank until the headers have been read. The header policy sets the intended value; **{{label:objectStorageApplyHeaderPolicy}}** corrects files that differ.
+- key: table:object_storage_object;field:contentDisposition
+  summary: The Content-Disposition header served with the file; it controls inline display versus download.
+- key: table:object_storage_object;field:userMetadata
+  summary: Custom name and value pairs stored with the file, shown as JSON.
+  content: |
+    Change them with **{{label:objectStorageChangeHeaders}}**.
+- key: table:object_storage_object;field:tags
+  summary: Labels attached to the file on the server, shown as JSON. Change them with Edit tags.
+  content: |
+    Only servers that support object tagging keep them.
+- key: table:object_storage_object;field:versionId
+  summary: The server's version identifier for the current version of the file. Blank when the bucket does not keep versions.
+- key: table:object_storage_object;field:referenceCount
+  summary: How many records in your application point at this file. Zero in a tracked bucket makes the file an orphan.
+  content: |
+    Filled in by the reference scan after each bucket scan. Referenced files are skipped by delete and move.
+- key: table:object_storage_object;field:protection
+  summary: The protection mode that applies to the file, if any. Read-only.
+  content: |
+    Protection rules are set up under **{{label:object_storage_protection_rule}}**; actions that would change or delete a protected file skip it and say why in the review.
+- key: table:object_storage_object;field:headersKnown
+  summary: Yes once the app has read this file's headers and metadata from the server.
+  content: |
+    Reading them takes a request per file, so new and changed files catch up gradually after a scan. **{{label:objectStorageRefreshObjects}}** reads them at once.
+- key: table:object_storage_object;field:matchesHeaderPolicy
+  summary: Yes when the file's cache and download headers equal what the header policy asks for.
+  content: |
+    Blank until the headers are known. Backup buckets are always treated as matching. Use **{{label:objectStorageApplyHeaderPolicy}}** to fix files that do not.
+- key: table:object_storage_object;field:deleted
+  summary: Yes when the file is no longer in the bucket. The record is kept for a while for history.
+  content: |
+    A scan marks files it no longer finds; deletes made through the app mark them straight away.
+- key: table:object_storage_object;field:scanGeneration
+  summary: The number of the scan that last saw this file. Filled in automatically and used to find files that disappeared.
+- key: table:object_storage_object;field:indexedAt
+  summary: When the app last updated this record from the bucket.
+- key: table:object_storage_object;field:previewUrl
+  summary: A thumbnail or file card for the file, built from a link that expires after 5 minutes.
+  content: |
+    Filled in automatically when the list or record is opened, only for a limited number of rows at a time, and not for backup buckets.
+- key: table:object_storage_object_version;slot:help
+  summary: Reserved for file version history; this list is not populated yet.
+  content: |
+    **How rows get created:** **Not used yet.** The index lists current objects only; no version-history rows are written. Your storage provider may still retain versions and delete markers.
+
+- key: table:object_storage_object_reference;slot:help
+  summary: Find records that reference stored files so you can review what is safe to remove.
+  content: |
+    Each row says "this record uses that file (or folder)". The scan uses the reference providers configured by your application to rebuild this list for the bucket. Run **{{label:objectStorageRescanBucket}}** to refresh it sooner.
+
+    - A reference marked **{{label:object_storage_object_reference.missing}}** points at something that is not in the bucket's index: a broken link in your application.
+    - A file that no reference points at is shown as orphaned on the bucket and on the **Overview**; it is a candidate for cleanup.
+    - Referenced files are skipped by **{{label:objectStorageDeleteObjects}}** and **{{label:objectStorageMoveObjects}}**, to protect files still in use.
+
+    Rows here are read-only and are replaced on every scan. See also **{{label:object_storage_object}}**.
+    **How rows get created:** Configure reference tracking and reference providers through your administrator, then scan the bucket. Without providers, the list stays empty.
+
+- key: table:object_storage_object_reference;section:identity
+  summary: The bucket, the file and how the reference matches it.
+- key: table:object_storage_object_reference;section:referencing_record
+  summary: Which record and field holds the reference, and a readable label for it.
+- key: table:object_storage_object_reference;section:dates
+  summary: When the reference was last found by a scan.
+- key: table:object_storage_object_reference;field:bucketId
+  summary: The bucket the referenced file lives in. Filled in by the scan.
+- key: table:object_storage_object_reference;field:objectId
+  summary: The stored file this reference resolves to. Empty when the file is missing; filled in by the scan.
+- key: table:object_storage_object_reference;field:keyOrPrefix
+  summary: The file path, or folder path, the referencing record points at.
+  content: |
+    When the match is **KEY** this is one file's full path in the bucket. When it is **PREFIX** it is a folder path, and every file under it counts as referenced.
+- key: table:object_storage_object_reference;field:matchMode
+  summary: Whether the reference names one exact file or a whole folder.
+  content: |
+    Values: **KEY** means one exact file. **PREFIX** means every file under the folder path. Your application configures which records and fields supply these references.
+- key: table:object_storage_object_reference;field:sourceTable
+  summary: The kind of record that holds the reference (for example a media or photo record).
+- key: table:object_storage_object_reference;field:sourceRecordId
+  summary: The id of the record that holds the reference.
+- key: table:object_storage_object_reference;field:sourceField
+  summary: The field on that record that holds the file path or address.
+- key: table:object_storage_object_reference;field:label
+  summary: A readable name for the referencing record, to help you find it.
+- key: table:object_storage_object_reference;field:missing
+  summary: Yes when nothing in the bucket matches the reference, meaning the file the record points at is gone.
+  content: |
+    Check it first when a referenced file cannot be found. It is recalculated on every scan, so it clears itself once the file is back or the reference is fixed.
+- key: table:object_storage_object_reference;field:scannedAt
+  summary: When a scan last found this reference.
+- key: table:object_storage_header_rule;slot:help
+  summary: A rule that sets the Cache-Control or Content-Disposition header on stored files whose path or type matches.
+  content: |
+    Header rules decide the headers new and rewritten files should carry. For each file the first matching rule wins: enabled rules are checked in order of **{{label:object_storage_header_rule.priority}}** (lowest number first, then oldest rule first), and a rule matches when every condition you filled in matches. Conditions left blank are ignored. Backup buckets are never affected.
+
+    Rule changes are picked up within about 15 seconds. Use **Apply header policy** on objects or on a bucket to rewrite files that already exist.
+
+    These rules apply when your application uses the default header policy. Your administrator may configure a custom policy instead. Only storage administrators can edit rules.
+    **How rows get created:** You can add rules with storage administrator access. If your administrator installs the optional starter rule, it is disabled until you configure and enable it.
+
+- key: table:object_storage_header_rule;section:identity
+  summary: The rule's name and the bucket it applies to.
+- key: table:object_storage_header_rule;section:matches
+  summary: The conditions a file must meet for the rule to apply. All filled-in conditions must match.
+- key: table:object_storage_header_rule;section:headers_to_set
+  summary: The header values the rule gives matching files, plus its order and on/off switch.
+- key: table:object_storage_header_rule;section:dates
+  summary: When the rule was created and last changed.
+- key: table:object_storage_header_rule;field:name
+  summary: A short name so you can tell the rules apart.
+- key: table:object_storage_header_rule;field:bucketId
+  summary: Limit the rule to one bucket. Leave blank to apply to every bucket.
+- key: table:object_storage_header_rule;field:keyGlob
+  summary: "The path pattern a file must match for this header rule to apply."
+  content: |
+    A path pattern the file must match, where * is any run of characters and ? is any one character.
+
+    The pattern is matched against the whole path, so media/* matches everything under media/, and *.jpg matches every JPEG in any folder. Leave blank to ignore the path.
+- key: table:object_storage_header_rule;field:keyRegex
+  summary: A regular expression the whole file path must match. Leave blank to ignore it.
+  content: |
+    Use this when a simple pattern is not enough. It must match the entire path, not just part of it. A rule with an invalid expression will fail to apply, so test it with a small rule first.
+- key: table:object_storage_header_rule;field:contentTypePattern
+  summary: "A pattern for the file's content type. Leave blank to ignore the type."
+  content: |
+    A pattern for the file's content type, for example image/* or video/mp4. Leave blank to ignore the type.
+
+    Uses the same * and ? wildcards as the path pattern.
+- key: table:object_storage_header_rule;field:cacheControl
+  summary: The Cache-Control value to set, for example public, max-age=86400. Leave blank to set nothing.
+  content: |
+    Tells browsers and the CDN how long they may keep a copy of the file.
+- key: table:object_storage_header_rule;field:contentDisposition
+  summary: The Content-Disposition value to set, for example attachment. Leave blank to set nothing.
+  content: |
+    Use attachment to make browsers download the file instead of showing it.
+- key: table:object_storage_header_rule;field:priority
+  summary: "Order of checking: the lowest number is checked first and the first match wins."
+  content: |
+    Order of checking: the lowest number is checked first and the first match wins. Default {{default:object_storage_header_rule.priority}}.
+- key: table:object_storage_header_rule;field:enabled
+  summary: Switch a rule off without deleting it. New rules start on.
+- key: table:object_storage_protection_rule;slot:help
+  summary: A guard on part of a bucket that blocks deletes or all changes to files whose path matches.
+  content: |
+    Use protection rules to keep important folders safe from clicks and from automated cleanup. A rule applies to files in its bucket whose whole path matches the **{{label:object_storage_protection_rule.prefixGlob}}**. Actions such as **{{label:objectStorageDeleteObjects}}**, **{{label:objectStorageMoveObjects}}** and **{{label:objectStorageUploadFiles}}** skip protected files and say so in their review.
+
+    Modes: **Read Only** blocks every change, **No Delete** blocks deleting, **Warn** allows the change but warns. Only enabled rules count. Rules apply to everyone, admins included. Only admins can add or edit rules.
+
+    See also **{{label:object_storage_bucket}}**, which can also be marked protected as a whole.
+    **How rows get created:** You can add protection rules with storage administrator access. An empty list means no protection rules have been added.
+
+- key: table:object_storage_protection_rule;section:identity
+  summary: The bucket and path pattern the rule guards.
+- key: table:object_storage_protection_rule;section:why
+  summary: The protection mode, the reason shown to people, and the on/off switch.
+- key: table:object_storage_protection_rule;section:dates
+  summary: When the rule was created and last changed.
+- key: table:object_storage_protection_rule;field:bucketId
+  summary: The bucket the rule guards.
+- key: table:object_storage_protection_rule;field:prefixGlob
+  summary: "The path pattern for the files to protect."
+  content: |
+    A path pattern for the files to protect, where * is any run of characters and ? is any one character.
+
+    Despite the name it is matched against the whole file path, so use a trailing * to protect a folder: media/originals/* guards everything under that folder.
+- key: table:object_storage_protection_rule;field:mode
+  summary: How strict the rule is. Defaults to {{default:object_storage_protection_rule.mode}}.
+  content: |
+    Values: **Read Only** blocks writes, overwrites, moves and deletes. **No Delete** blocks only deletes and moves out, so uploads still work. **Warn** blocks nothing but adds a warning to the review.
+- key: table:object_storage_protection_rule;field:reason
+  summary: Why the files are protected. It is shown when an action is blocked or warned about.
+- key: table:object_storage_protection_rule;field:allowedSystemCallers
+  summary: Names of server-side jobs, separated by commas, that may still delete protected files.
+  content: |
+    This exception is for automated callers only and only for deletes. People using the admin app are never exempt. Leave blank unless you know the exact name of the job.
+- key: table:object_storage_protection_rule;field:enabled
+  summary: Switch a rule off without deleting it. New rules start on.
+- key: table:object_storage_operation;slot:help
+  summary: 'The audit log of every write to storage: who did what to which file, when, and whether it worked.'
+  content: |
+    A row is added each time a file is uploaded, copied, deleted, restored or has its headers or tags changed, and each time a download or upload link is made. It covers actions you run here and writes made by your application through the storage service. A move shows up as a copy followed by a delete.
+
+    Rows are written by the system and cannot be edited. Use the **{{label:object_storage_operation.result}}** and **{{label:object_storage_operation.errorMessage}}** fields to find what failed, and the filters to follow one file or one person. The **Overview** shows the 20 most recent changes. See also **{{label:object_storage_object}}**.
+    **How rows get created:** Operations through the storage service write these read-only audit rows. Changes made directly on the storage server are not logged here.
+
+- key: table:object_storage_operation;section:identity
+  summary: When it happened, who did it, what it was and which bucket it touched.
+- key: table:object_storage_operation;section:detail
+  summary: The file paths, size, outcome and diagnostic details of the operation.
+- key: table:object_storage_operation;section:dates
+  summary: When the log row itself was created.
+- key: table:object_storage_operation;field:occurredAt
+  summary: When the operation ran.
+- key: table:object_storage_operation;field:actor
+  summary: 'Who did it: a signed-in person, or the name of the server job or application component that made the change.'
+- key: table:object_storage_operation;field:action
+  summary: What was done, such as a copy, delete or restore.
+- key: table:object_storage_operation;field:bucketId
+  summary: The bucket the operation touched.
+- key: table:object_storage_operation;field:bucketAlias
+  summary: The bucket's short name as it was when the operation ran. Kept even if the bucket is later removed.
+- key: table:object_storage_operation;field:objectKey
+  summary: The path of the file the operation acted on.
+- key: table:object_storage_operation;field:destinationKey
+  summary: For a copy, the path the file was copied to. Empty for other actions.
+- key: table:object_storage_operation;field:bytes
+  summary: The size of the data involved, in bytes, when known.
+- key: table:object_storage_operation;field:result
+  summary: 'Whether the operation worked: {{values:object_storage_operation_result}}.'
+- key: table:object_storage_operation;field:errorMessage
+  summary: What went wrong, when the result is FAILED or SKIPPED.
+- key: table:object_storage_operation;field:providerRequestId
+  summary: The storage server's own request id, useful when asking for help with a failed call.
+- key: table:object_storage_operation;field:processRunId
+  summary: The id of the action run that caused this change, so all rows from one run can be grouped.
+- key: table:object_storage_operation;field:detail
+  summary: Extra notes, such as how many files a bulk purge removed, which tags were set, or when a link expires.
+- key: table:object_storage_usage_daily;slot:help
+  summary: One daily snapshot of how many files a bucket holds and how much space they use, so you can watch growth.
+  content: |
+    When run, the storage housekeeping job records one row per indexed bucket per day, taken from the bucket's index (it is not a live count). Running the snapshot twice on the same day updates that day's row. The **Overview** charts the last 30 days, and a trend needs at least two days of data.
+
+    If a bucket has a size quota and reaches 80 percent of it, a warning alert is raised, and an error alert at 95 percent; it clears when usage drops back. Rows are read-only. See also **{{label:object_storage_bucket}}**.
+    **How rows get created:** Run or schedule the storage housekeeping job to record one snapshot per indexed bucket per day. An empty list means no snapshots have been recorded.
+
+- key: table:object_storage_usage_daily;section:identity
+  summary: The bucket and the day the snapshot was taken.
+- key: table:object_storage_usage_daily;section:by_top_level_folder
+  summary: How the space splits across the bucket's top-level folders.
+- key: table:object_storage_usage_daily;section:dates
+  summary: When the snapshot row was created and last updated.
+- key: table:object_storage_usage_daily;field:bucketId
+  summary: The bucket the snapshot describes.
+- key: table:object_storage_usage_daily;field:snapshotDate
+  summary: The day of the snapshot, in UTC.
+- key: table:object_storage_usage_daily;field:objectCount
+  summary: How many files the bucket held, according to its index.
+- key: table:object_storage_usage_daily;field:totalBytes
+  summary: The total size of the files in bytes, according to the bucket's index.
+- key: table:object_storage_usage_daily;field:byPrefix
+  summary: 'A breakdown by top-level folder: file count and bytes for each, stored as text.'
+- key: table:object_storage_object_version;section:identity
+  summary: Which bucket, file and version this row describes.
+- key: table:object_storage_object_version;section:dates
+  summary: When the version was written to the bucket.
+- key: table:object_storage_object_version;field:bucketId
+  summary: The bucket the version belongs to.
+- key: table:object_storage_object_version;field:objectId
+  summary: The stored file this version belongs to.
+- key: table:object_storage_object_version;field:objectKey
+  summary: The path of the file this version belongs to.
+- key: table:object_storage_object_version;field:versionId
+  summary: The storage server's own id for this version.
+- key: table:object_storage_object_version;field:isDeleteMarker
+  summary: Yes for a delete marker, the placeholder a bucket with versioning adds when a file is deleted.
+  content: |
+    **{{label:objectStorageRestoreObjects}}** removes the marker to bring the file back.
+- key: table:object_storage_object_version;field:isLatest
+  summary: Yes when this is the current version of the file.
+- key: table:object_storage_object_version;field:size
+  summary: The size of this version in bytes.
+- key: table:object_storage_object_version;field:lastModified
+  summary: When this version was written, as reported by the storage server.
+- key: process:objectStorageTestConnection;slot:help
+  summary: Checks that your application can reach the storage server and see what it supports, using read-only calls.
+  content: |
+    Run it on a connection after the server or its credentials change, or when uploads misbehave. It looks at the connection's buckets without changing anything, and then saves the result on the connection: when it was tested, **OK** or **PROBLEMS**, a short summary, and the clock difference between your application and the server.
+
+    A clock difference over 15 minutes is reported as an error, because signed requests fail beyond that. If the test finds problems an alert is raised, and it is cleared the next time the test passes. The findings also refresh the **Capabilities** list. Needs the storage view permission. For a deeper check use **{{label:objectStorageTestConnectionWithWriteTests}}**.
+- key: process:objectStorageTestConnectionWithWriteTests;slot:help
+  summary: Like Test connection, but also writes, copies and deletes a small probe file to prove the server really allows it.
+  content: |
+    The probe file lives under a hidden folder named .qqq-probe/ and is removed again. It is skipped for protected buckets and for backup buckets with object lock, and the review shows how many buckets get write tests and how many are skipped.
+
+    Use it sparingly: it really writes to your buckets, so it needs the storage admin permission. It saves the same result as **{{label:objectStorageTestConnection}}** (time, OK or PROBLEMS, summary, clock difference) and refreshes the **Capabilities** list with what it proved.
+- key: process:objectStorageRescanBucket;slot:help
+  summary: Lists the whole bucket again and brings the file index up to date, then reads missing headers and refreshes references.
+  content: |
+    Use it when you changed files outside this app, or when the **{{label:object_storage_object}}** list looks out of date. For each selected indexed bucket it adds new files, updates changed ones and removes files that are gone, then reads the headers of files not yet read (up to the configured batch limit) and, for buckets that track references, recalculates which files are used and which are missing or orphaned.
+
+    The review shows roughly how many list calls it will make; large buckets take longer. Buckets that are not indexed, or that are already being scanned, are skipped. Needs the storage view permission. It changes the index only, never the files.
+- key: process:objectStorageCheckConfiguration;slot:help
+  summary: Reads a bucket's versioning, lifecycle, access policy and CORS settings and reports any drift from what is expected.
+  content: |
+    This only looks. Buckets are created and configured outside this app, so nothing here changes a bucket. The result shows each setting (for example versioning on or off, or "none" for a missing lifecycle rule) and flags a warning where the live setting differs from what the configuration expects. Some settings may show as "not available" if the storage server does not support them. Needs the storage view permission.
+- key: process:objectStorageApplyHeaderPolicyToBucket;slot:help
+  summary: Rewrites the headers of every indexed file in the selected buckets so they match the header policy.
+  content: |
+    Use it after the cache policy changes so that existing files catch up. The review lists how many files differ, with a few examples. Files whose headers are not yet known are skipped until they are refreshed or a configured housekeeping job reads them. Backup buckets and protected files are never touched.
+
+    Rewriting headers copies each file onto itself, which changes its **Last modified** time and can change its ETag. A run over more than the bulk limit (10,000 files by default) needs the storage admin permission. Needs the storage write permission. Failures are listed in **{{label:object_storage_operation}}**.
+- key: process:objectStorageCreateUploadLink;slot:help
+  summary: Makes a temporary link that lets someone upload one file to this bucket without signing in.
+  content: |
+    Enter the file's path in the bucket, and optionally its content type and exact size to pin the upload to them. The link lasts no longer than the bucket's effective upload-link limit (up to 15 minutes) and is shown only once on the result screen, so copy it right away.
+
+    Anyone holding the link can upload that one file until it expires, so share it only with the person who should use it. A link can pin one exact size and type but cannot set a maximum size. Every link is recorded in **{{label:object_storage_operation}}**. Needs the storage write permission.
+- key: process:objectStorageCreateUploadLink;field:linkKey
+  summary: The full path the uploaded file will get in the bucket, for example uploads/photo.jpg. Required.
+- key: process:objectStorageCreateUploadLink;field:linkContentType
+  summary: Optional. If you fill it in, the upload only works with exactly this content type, for example image/jpeg.
+- key: process:objectStorageCreateUploadLink;field:linkContentLength
+  summary: Optional. If you fill it in, the upload only works with exactly this size in bytes.
+- key: process:objectStorageRefreshObjects;slot:help
+  summary: Re-reads the selected files from the bucket so the list shows their real size, headers and whether they still exist.
+  content: |
+    Use it when you suspect the list is stale for a few files; use **{{label:objectStorageRescanBucket}}** for a whole bucket. Each file is checked directly against the storage server. A file that has disappeared is marked deleted, and a file that cannot be read is reported as an error. Nothing in the bucket is changed. Needs the storage view permission.
+- key: process:objectStorageApplyHeaderPolicy;slot:help
+  summary: Rewrites the headers of the selected files so they match the header policy.
+  content: |
+    The review shows how many files differ and a few examples of the Cache-Control change; files that already match, deleted files, protected files, files in backup buckets and files whose headers cannot be read are skipped.
+
+    Rewriting headers copies each file onto itself, which changes its **Last modified** time and can change its ETag. Runs larger than the bulk limit (10,000 files by default) need the storage admin permission. Needs the storage write permission. Use **{{label:objectStorageApplyHeaderPolicyToBucket}}** on a bucket to do a whole bucket at once.
+- key: process:objectStorageChangeHeaders;slot:help
+  summary: Sets Cache-Control, Content-Type, Content-Disposition and custom metadata on the selected files in one go.
+  content: |
+    Fill in only what you want to change. A blank header is left as it is, and a single hyphen (-) removes that header. Metadata is one key=value per line; a line with just key= removes that key, and other keys are kept.
+
+    The review shows how many files will really change; files that already have the values, protected files, backup bucket files and unreadable files are skipped. Changing headers copies each file onto itself, which changes **Last modified** and can change the ETag. Needs the storage write permission.
+- key: process:objectStorageChangeHeaders;field:cacheControl
+  summary: How long browsers and the CDN may keep the file, e.g. public, max-age=86400. Blank keeps it; - removes it.
+- key: process:objectStorageChangeHeaders;field:contentType
+  summary: The file's content type, for example image/jpeg. Blank keeps the current value; - clears it.
+  content: |
+    A wrong content type can make browsers show a file as text or refuse to display it, so change it only to fix a known mistake.
+- key: process:objectStorageChangeHeaders;field:contentDisposition
+  summary: Whether browsers show or download the file, for example attachment. Blank keeps the current value; - removes it.
+- key: process:objectStorageChangeHeaders;field:userMetadata
+  summary: Custom labels stored with the file, one key=value per line. Use key= to remove a key; other keys are kept.
+- key: process:objectStorageEditTags;slot:help
+  summary: Replaces the tags on the selected files with the tags you type.
+  content: |
+    Tags are small key=value labels stored with a file, one per line. This replaces all existing tags on each selected file: leave the box empty to remove every tag. A line that is not key=value is rejected in the review.
+
+    Storage servers that do not support tagging are skipped and counted in the review, as are protected files. Needs the storage write permission. Each change is recorded in **{{label:object_storage_operation}}**.
+- key: process:objectStorageEditTags;field:tags
+  summary: The complete set of tags for each selected file, one key=value per line. Empty removes all tags.
+- key: process:objectStorageCopyObjects;slot:help
+  summary: Copies the selected files to another folder or bucket, keeping the originals.
+  content: |
+    Choose a destination bucket (blank means the same bucket) and folder (blank means the bucket root). By default each copy is named after the file only; turn on the keep-path option to recreate the file's whole folder path under the destination. The review shows what will be skipped and why: the destination already exists (unless overwrite is on), the destination is protected or in a backup bucket, the name is not valid, or the file is already there.
+
+    Files over 5 GB are copied in parts. Needs the storage write permission, and every copy is logged in **{{label:object_storage_operation}}**.
+- key: process:objectStorageCopyObjects;field:destinationBucket
+  summary: The bucket to copy into. Leave blank to copy within the same bucket.
+- key: process:objectStorageCopyObjects;field:destinationPrefix
+  summary: The folder the copies go into, for example media/2026/. Leave blank for the bucket root.
+- key: process:objectStorageCopyObjects;field:keepPath
+  summary: 'Off: only the file name goes into the destination folder. On: the file''s whole folder path is kept below it.'
+- key: process:objectStorageCopyObjects;field:overwrite
+  summary: 'Off: files that already exist at the destination are skipped. On: they are replaced.'
+  content: |
+    Replacing cannot be undone unless the bucket keeps old versions.
+- key: process:objectStorageMoveObjects;slot:help
+  summary: Moves the selected files to another folder or bucket, or renames a single file.
+  content: |
+    A move is a copy followed by a delete, not one atomic step. If the delete fails, the file exists in both places and the result says so. Choose a destination bucket and folder as for **{{label:objectStorageCopyObjects}}**; to rename, select exactly one file and fill in **New file name**.
+
+    Referenced files (used by a referencing record), protected files, files under object lock and files in backup buckets are skipped, to protect files still in use. Needs both the storage write and storage delete permissions. Each step is logged in **{{label:object_storage_operation}}**.
+- key: process:objectStorageMoveObjects;field:destinationBucket
+  summary: The bucket to move into. Leave blank to move within the same bucket.
+- key: process:objectStorageMoveObjects;field:destinationPrefix
+  summary: The folder the files go into, for example media/2026/. Leave blank for the bucket root.
+- key: process:objectStorageMoveObjects;field:keepPath
+  summary: 'Off: only the file name goes into the destination folder. On: the file''s whole folder path is kept below it.'
+- key: process:objectStorageMoveObjects;field:overwrite
+  summary: 'Off: files that already exist at the destination are skipped. On: they are replaced.'
+  content: |
+    Replacing cannot be undone unless the bucket keeps old versions.
+- key: process:objectStorageMoveObjects;field:newName
+  summary: A new file name, used only when exactly one file is selected. It is ignored when you move several.
+- key: process:objectStorageDeleteObjects;slot:help
+  summary: Deletes the selected files, in a way you can usually undo, and skips anything used by your application or protected.
+  content: |
+    How a delete works depends on the bucket. With versioning on, a delete marker is added and **{{label:objectStorageRestoreObjects}}** removes it. With a trash folder on, the file is moved to the trash and can be restored until the trash is purged. With neither, the delete is permanent and cannot be undone, and only users with the storage admin permission can do it; others see those files skipped.
+
+    Files that a referencing record still uses, protected files, files under object lock and files in backup buckets are skipped, and the review says how many. Runs over the bulk limit (10,000 files by default) need the storage admin permission. Needs the storage delete permission. Every delete is logged in **{{label:object_storage_operation}}**.
+- key: process:objectStorageRestoreObjects;slot:help
+  summary: Brings back deleted files by removing the delete marker or copying them back from the trash.
+  content: |
+    Select deleted files and run it. It works only where the bucket has versioning or a trash folder. Files that are not deleted are reported as "no change", files in buckets with neither are reported as unable to be restored, and files whose trash copy has already been purged have nothing left to restore. Protected files are skipped.
+
+    Needs the storage write permission. The restore is logged in **{{label:object_storage_operation}}**.
+- key: process:objectStorageCreateDownloadLink;slot:help
+  summary: Makes a temporary link for each selected file so you can download it or share it with someone without an account.
+  content: |
+    Up to 25 links are made per run. Each link lasts no longer than the bucket's effective download-link limit (up to five minutes) and is shown once on the next screen, so copy it right away. Anyone who has a link can download that file until it expires. Deleted files are skipped.
+
+    Useful for private files that have no public address. Links are limited per person per hour, and each one is recorded in **{{label:object_storage_operation}}**. Needs the storage view permission.
+- key: process:objectStorageRenameFolder;slot:help
+  summary: Moves every file under a folder to a new folder path, which renames the folder or moves it to another bucket.
+  content: |
+    Select exactly one folder; the run stops with an error if you select several. Type the new path, for example media/archive/2026/, and optionally a destination bucket. Every file under the folder is copied to the new place and then deleted from the old one. This is not one atomic step: if a delete fails, those files exist in both places and the result says so.
+
+    Referenced files (used by a referencing record), protected files, files under object lock and files in backup buckets are skipped, so the folder may be left partly moved. Links in your application to the old paths will stop working. Needs the storage write and storage delete permissions.
+- key: process:objectStorageRenameFolder;field:newPath
+  summary: The folder the files will end up in, for example media/archive/2026/. Required.
+- key: process:objectStorageRenameFolder;field:destinationBucket
+  summary: The bucket to move into. Leave blank to stay in the same bucket.
+- key: process:objectStorageRenameFolder;field:overwrite
+  summary: 'Off: files that already exist at the new path are skipped. On: they are replaced.'
+  content: |
+    Replacing cannot be undone unless the bucket keeps old versions.
+- key: process:objectStorageDeleteFolder;slot:help
+  summary: Deletes every file under the selected folder, with the same safety rules as Delete objects.
+  content: |
+    The review lists the files under the folder and how each will be deleted: delete marker, trash, or permanent. Permanent deletes cannot be undone and need the storage admin permission. Referenced files, protected files, files under object lock and files in backup buckets are skipped, so a folder is not necessarily emptied.
+
+    Runs over the bulk limit (10,000 files by default) need the storage admin permission. Needs the storage delete permission. Each deleted file is logged in **{{label:object_storage_operation}}**.
+- key: process:objectStorageUploadFiles;slot:help
+  summary: Uploads one or more files from your computer into a bucket and folder.
+  content: |
+    Pick the files, the bucket and, optionally, a folder. The files go through the app server, so each file is limited in size (100 MB by default). The header policy sets the headers of the new files. Uploads are not offered for backup buckets.
+
+    If a file with the same name already exists it is skipped, unless you turn on overwrite. Files whose names would make an invalid path, or that land in a protected place, are skipped and reported in the review. Needs the storage write permission, and uploads are logged in **{{label:object_storage_operation}}**.
+- key: process:objectStorageUploadFiles;field:theFile
+  summary: The files to upload. You can choose several at once, up to the size limit per file.
+- key: process:objectStorageUploadFiles;field:uploadBucket
+  summary: The bucket the files go into. Required.
+- key: process:objectStorageUploadFiles;field:uploadPrefix
+  summary: The folder the files go into, for example media/2026/. Leave blank for the bucket root.
+- key: process:objectStorageUploadFiles;field:uploadOverwrite
+  summary: 'Off: files whose name already exists are skipped. On: the existing file is replaced.'
+  content: |
+    Replacing cannot be undone unless the bucket keeps old versions.
+- key: process:objectStorageUploadToFolder;slot:help
+  summary: Uploads files into the folder you started from.
+  content: |
+    The bucket and folder are filled in from the folder you are looking at, and you can change them. The files go through the app server, so each file is limited in size (100 MB by default). The header policy sets the headers of the new files, and existing files are skipped unless you turn on overwrite.
+
+    See **{{label:objectStorageUploadFiles}}** for the details. Needs the storage write permission.
+- key: process:objectStorageUploadToFolder;field:theFile
+  summary: The files to upload. You can choose several at once, up to the size limit per file.
+- key: process:objectStorageUploadToFolder;field:uploadBucket
+  summary: The bucket the files go into. Filled in from the current folder; you can change it.
+- key: process:objectStorageUploadToFolder;field:uploadPrefix
+  summary: The folder the files go into, for example media/2026/. Filled in from the current folder; you can change it.
+- key: process:objectStorageUploadToFolder;field:uploadOverwrite
+  summary: 'Off: files whose name already exists are skipped. On: the existing file is replaced.'
+  content: |
+    Replacing cannot be undone unless the bucket keeps old versions.
+- key: process:objectStorageNightly;slot:help
+  summary: 'The storage housekeeping job: rescans each indexed bucket, reads headers, checks references and records usage.'
+  content: |
+    For every indexed bucket it rescans the file list, reads headers for a batch of files not yet read (up to the configured batch limit), recalculates references for buckets that track them, and saves the day's usage snapshot. For buckets with a trash folder it permanently deletes trash older than the retention period. It then raises an alert for any indexed bucket not scanned in 48 hours, and a quota alert when a bucket is nearly full.
+
+    It is hidden from the menus, runs on the scheduler when one is set up for it, and needs the storage admin permission. A failure in one bucket does not stop the others; the run log lists each step.
+- key: widget:object_storage_connection_connectionId_object_storage_bucket;slot:label
+  summary: The buckets that live on this connection, with their role and whether they are indexed.
+- key: widget:object_storage_connection_connectionId_object_storage_connection_capability;slot:label
+  summary: What this storage server supports (for example versioning, tagging or presigned links) and how that was learned.
+- key: widget:object_storage_bucket_bucketId_object_storage_bucket_capability;slot:label
+  summary: What this bucket supports, from defaults and from the last connection test.
+- key: widget:object_storage_bucket_bucketId_object_storage_folder;slot:label
+  summary: The folders in this bucket, with file counts and sizes.
+- key: widget:object_storage_bucket_bucketId_object_storage_object;slot:label
+  summary: The files in this bucket, as listed in the index.
+- key: widget:object_storage_bucket_bucketId_object_storage_object_reference;slot:label
+  summary: Records in your application that point at files in this bucket, including broken ones.
+- key: widget:object_storage_bucket_bucketId_object_storage_usage_daily;slot:label
+  summary: The daily size and file count history of this bucket.
+- key: widget:object_storage_bucket_bucketId_object_storage_operation;slot:label
+  summary: 'The write log for this bucket: what was changed, by whom and when.'
+- key: widget:object_storage_bucket_bucketId_object_storage_header_rule;slot:label
+  summary: The header rules that apply to this bucket, including ones that apply to every bucket.
+- key: widget:object_storage_bucket_bucketId_object_storage_protection_rule;slot:label
+  summary: The protection rules guarding paths in this bucket.
+- key: widget:object_storage_folder_folderId_object_storage_object;slot:label
+  summary: The files directly in this folder.
+- key: widget:object_storage_object_objectId_object_storage_object_version;slot:label
+  summary: Reserved for version history; no rows are populated yet.
+- key: widget:object_storage_object_objectId_object_storage_object_reference;slot:label
+  summary: The records in your application that use this file. A file with none is orphaned and can usually be removed.
+- key: widget:objectStorageHome;slot:label
+  summary: 'The storage overview: buckets, data health, the last 20 changes, cache headers, 30-day usage trend and connections.'
+  content: |
+    Each card links to the full list. **Data health** counts orphaned files (used by nothing) and missing ones (referenced but gone) for buckets that track references, and shows when they were last scanned. **Cache headers** shows how many indexed files match the header policy and how many have known headers. **Usage trend** needs at least two days of snapshots.
+- key: possibleValueSource:object_storage_provider_type;slot:help
+  summary: The kind of storage server a connection talks to.
+  content: |
+    Values: **Aws S3** is Amazon S3. **Minio** is a self-hosted MinIO server. **Cloudflare R2** is Cloudflare R2. **Backblaze B2** is Backblaze B2. **Wasabi** is Wasabi. **Do Spaces** is DigitalOcean Spaces. **Ceph Rgw** is a Ceph object gateway. **Garage** is a Garage server. **Other** is any other S3-compatible store. The type sets the starting guess for what the server supports until a connection test learns the facts.
+- key: possibleValueSource:object_storage_bucket_role;slot:help
+  summary: What a bucket is for, which decides what the app will let you do with it.
+  content: |
+    Values: **Public** holds files served to visitors, and gets your application's cache headers. **Private** holds files that are not public. **Incoming** is a landing area for uploads. **Backup** holds backups: the header policy, uploads and file actions never apply to a backup bucket.
+- key: possibleValueSource:object_storage_managed_by;slot:help
+  summary: Where a bucket's settings are controlled from.
+  content: |
+    Values: **Iac** means the bucket is created and configured outside this app, in infrastructure code, and the app only observes it. **Ui** means it can be configured from this app.
+- key: possibleValueSource:object_storage_capability;slot:help
+  summary: The storage features the app checks for on a server or bucket.
+  content: |
+    Values: **List V2** modern file listing. **Put Get Delete** basic upload, download and delete. **Copy Replace Metadata** copying a file onto itself to change its headers. **Batch Delete** deleting many files in one call. **Multipart** large uploads in parts. **Presigned Get**, **Presigned Put** and **Presigned Post** temporary download and upload links. **Conditional Write** uploads that refuse to overwrite. **Versioning** keeps older versions. **Object Lock** write-once retention. **Lifecycle** automatic expiry rules. **Bucket Policy** access policies. **Cors** browser cross-site rules. **Object Tagging** tags on files. **Acl** per-file access lists. **Usage Admin Api** and **Quota Admin Api** the server's own usage and quota reports.
+- key: possibleValueSource:object_storage_capability_status;slot:help
+  summary: Whether a feature works on this server or bucket.
+  content: |
+    Values: **Supported** works. **Unsupported** the server does not offer it. **Not Permitted** the server offers it but these credentials may not use it. **Partial** works only in part or with caveats. **Unknown** not tested yet, run **{{label:objectStorageTestConnection}}**. Actions use this to decide what to offer or skip.
+- key: possibleValueSource:object_storage_capability_source;slot:help
+  summary: How the app learned a capability's status.
+  content: |
+    Values: **Default** an assumption from the kind of server. **Probe** measured by a connection test. **Override** set by hand in the configuration, replacing the other two.
+- key: possibleValueSource:object_storage_protection_mode;slot:help
+  summary: How strictly a protection rule guards the files it matches.
+  content: |
+    Values: **Read Only** blocks writes, overwrites, moves and deletes. **No Delete** blocks deleting and moving out, but allows new uploads. **Warn** blocks nothing, but shows a warning in the review.
+- key: possibleValueSource:object_storage_operation_action;slot:help
+  summary: The kinds of change recorded in the storage audit log.
+  content: |
+    Values: **Put** a file was written. **Copy** a file was copied (a move is a copy followed by a delete). **Headers** headers, metadata or tags were changed. **Delete** a file was deleted, or a batch purged. **Restore** a deleted file was brought back. **Presign Get**, **Presign Put** and **Presign Post** a temporary download or upload link was made. **Move**, **Upload**, **Scan**, **Probe** and **Purge Trash** are also allowed values, but the app currently records those steps under the actions above.
+- key: possibleValueSource:object_storage_operation_result;slot:help
+  summary: How a logged storage operation ended.
+  content: |
+    Values: **OK** it worked. **Failed** it did not work; the error message says why. **Skipped** it was deliberately not done, for example because the file was protected or under object lock.
+- key: possibleValueSource:object_storage_config_source;slot:help
+  summary: Whether a connection or bucket comes from the server configuration or was entered in the app.
+  content: |
+    Values: **Config** comes from the server configuration, so its address and credential settings are read-only here. **Ui** was created in the app.
+
+- key: process:object_storage_connection.bulkEdit;slot:help
+  summary: Update editable settings on multiple selected records.
+  content: |
+    Select the records you want to change and choose the editable fields. Review the proposed updates before continuing.
+
+    Connection addresses and credential references remain controlled by server configuration. You can edit request limits and timeouts. You need storage administrator access.
+
+- key: process:object_storage_connection.bulkEditWithFile;slot:help
+  summary: Update editable settings on multiple records using an uploaded file.
+  content: |
+    Upload a file containing the records and values to update. Map its columns to the editable fields and review the proposed changes before continuing.
+
+    Connection addresses and credential references remain controlled by server configuration. You can edit request limits and timeouts. You need storage administrator access.
+
+- key: process:object_storage_bucket.bulkEdit;slot:help
+  summary: Update editable settings on multiple selected records.
+  content: |
+    Select the records you want to change and choose the editable fields. Review the proposed updates before continuing.
+
+    Bucket identity remains controlled by server configuration. Link lifetime overrides cannot exceed the configured limits. You need storage administrator access.
+
+- key: process:object_storage_bucket.bulkEditWithFile;slot:help
+  summary: Update editable settings on multiple records using an uploaded file.
+  content: |
+    Upload a file containing the records and values to update. Map its columns to the editable fields and review the proposed changes before continuing.
+
+    Bucket identity remains controlled by server configuration. Link lifetime overrides cannot exceed the configured limits. You need storage administrator access.
+
+- key: process:object_storage_header_rule.bulkInsert;slot:help
+  summary: Import new rules from an uploaded file.
+  content: |
+    Upload your rules and map the columns to the rule fields. Review the proposed records and any validation errors before continuing.
+
+    Changes affect the default header policy. Use **{{label:objectStorageApplyHeaderPolicyToBucket}}** to update existing files. A custom policy configured by your administrator may bypass these rules. You need storage administrator access.
+
+- key: process:object_storage_header_rule.bulkEdit;slot:help
+  summary: Update editable settings on multiple selected records.
+  content: |
+    Select the records you want to change and choose the editable fields. Review the proposed updates before continuing.
+
+    Changes affect the default header policy. Use **{{label:objectStorageApplyHeaderPolicyToBucket}}** to update existing files. A custom policy configured by your administrator may bypass these rules. You need storage administrator access.
+
+- key: process:object_storage_header_rule.bulkEditWithFile;slot:help
+  summary: Update editable settings on multiple records using an uploaded file.
+  content: |
+    Upload a file containing the records and values to update. Map its columns to the editable fields and review the proposed changes before continuing.
+
+    Changes affect the default header policy. Use **{{label:objectStorageApplyHeaderPolicyToBucket}}** to update existing files. A custom policy configured by your administrator may bypass these rules. You need storage administrator access.
+
+- key: process:object_storage_header_rule.bulkDelete;slot:help
+  summary: Delete selected rules after reviewing the selection.
+  content: |
+    Review the selected rules before continuing. Deleting rules does not delete stored files.
+
+    Changes affect the default header policy. Use **{{label:objectStorageApplyHeaderPolicyToBucket}}** to update existing files. A custom policy configured by your administrator may bypass these rules. You need storage administrator access.
+
+- key: process:object_storage_protection_rule.bulkInsert;slot:help
+  summary: Import new rules from an uploaded file.
+  content: |
+    Upload your rules and map the columns to the rule fields. Review the proposed records and any validation errors before continuing.
+
+    Changes affect which files your protection rules guard. Removing a rule removes that protection; review its bucket and path carefully. You need storage administrator access.
+
+- key: process:object_storage_protection_rule.bulkEdit;slot:help
+  summary: Update editable settings on multiple selected records.
+  content: |
+    Select the records you want to change and choose the editable fields. Review the proposed updates before continuing.
+
+    Changes affect which files your protection rules guard. Removing a rule removes that protection; review its bucket and path carefully. You need storage administrator access.
+
+- key: process:object_storage_protection_rule.bulkEditWithFile;slot:help
+  summary: Update editable settings on multiple records using an uploaded file.
+  content: |
+    Upload a file containing the records and values to update. Map its columns to the editable fields and review the proposed changes before continuing.
+
+    Changes affect which files your protection rules guard. Removing a rule removes that protection; review its bucket and path carefully. You need storage administrator access.
+
+- key: process:object_storage_protection_rule.bulkDelete;slot:help
+  summary: Delete selected rules after reviewing the selection.
+  content: |
+    Review the selected rules before continuing. Deleting rules does not delete stored files.
+
+    Changes affect which files your protection rules guard. Removing a rule removes that protection; review its bucket and path carefully. You need storage administrator access.
+
+- key: possibleValueSource:object_storage_connection;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_connection}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_connection_capability;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_connection_capability}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_bucket;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_bucket}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_bucket_capability;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_bucket_capability}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_folder;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_folder}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_object;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_object}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_object_version;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_object_version}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_object_reference;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_object_reference}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_header_rule;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_header_rule}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_protection_rule;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_protection_rule}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_operation;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_operation}}**. The available choices depend on your access to those records.
+
+- key: possibleValueSource:object_storage_usage_daily;slot:help
+  summary: Choose a related record from the available storage records.
+  content: |
+    Select a record from **{{label:object_storage_usage_daily}}**. The available choices depend on your access to those records.
