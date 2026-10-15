@@ -46,6 +46,7 @@ import com.kingsrook.qbits.objectstorage.internal.PostPolicySigner;
 import com.kingsrook.qbits.objectstorage.internal.ProtectionRules;
 import com.kingsrook.qbits.objectstorage.internal.RateLimiter;
 import com.kingsrook.qqq.backend.core.actions.permissions.CorePermissionEnforcer;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
@@ -96,7 +97,8 @@ public final class StorageBucket
 {
    private static final QLogger LOG = QLogger.getLogger(StorageBucket.class);
 
-   private static final Map<String, long[]> PRESIGN_COUNTS = new ConcurrentHashMap<>();
+   private static final Map<String, long[]> PRESIGN_COUNTS = ClusterCaches.nodeLocal(new ConcurrentHashMap<>(),
+      "per-pod presign rate limiter; per-node rate limits are accepted for now (cluster HA spec, owner decision 4)");
 
    private final StorageBucketConfig bucket;
    private final ConnectionRuntime   connection;

@@ -30,6 +30,7 @@ import com.kingsrook.qbits.objectstorage.api.Capability;
 import com.kingsrook.qbits.objectstorage.api.CapabilityStatus;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 
@@ -47,7 +48,11 @@ public final class CapabilityStore
    public static final Set<Capability> CONNECTION_SCOPE = EnumSet.of(Capability.LIST_V2, Capability.PRESIGNED_GET, Capability.PRESIGNED_PUT,
       Capability.PRESIGNED_POST, Capability.USAGE_ADMIN_API, Capability.QUOTA_ADMIN_API);
 
-   private static final Map<String, CapabilityStatus> CACHE  = new ConcurrentHashMap<>();
+   /** Cluster cache name of the capability statuses (a probe result recorded on one node clears that key on every node). */
+   public static final String CACHE_NAME = "qbit-object-storage.capabilities";
+
+   private static final Map<String, CapabilityStatus> CACHE  = ClusterCaches.shared(CACHE_NAME, new ConcurrentHashMap<>(),
+      CapabilityStore::clearCache, CapabilityStore::clearKey);
    private static final Set<String>                   LOADED = ConcurrentHashMap.newKeySet();
 
 
@@ -62,12 +67,34 @@ public final class CapabilityStore
 
 
    /*******************************************************************************
-    ** Drop everything cached.
+    ** Drop everything cached on this node.
     *******************************************************************************/
    public static void clearCache()
    {
       CACHE.clear();
       LOADED.clear();
+   }
+
+
+
+   /*******************************************************************************
+    ** Drop one cached status on this node; the next read reloads the missing
+    ** statuses from the capability rows (cached ones are kept).
+    *******************************************************************************/
+   static void clearKey(String key)
+   {
+      CACHE.remove(key);
+      LOADED.clear();
+   }
+
+
+
+   /*******************************************************************************
+    ** Whether a status is cached on this node (tests).
+    *******************************************************************************/
+   static boolean isCached(StorageBucketConfig bucket, Capability capability)
+   {
+      return (CACHE.containsKey(scopeKey(bucket, capability)));
    }
 
 
@@ -112,10 +139,24 @@ public final class CapabilityStore
 
    /*******************************************************************************
     ** Record one probe result (cache and, when the tables are there, the row).
+    ** The row is written first, then the key is cleared on every node (they
+    ** reload it from the row), then cached here.
     *******************************************************************************/
    public static void record(StorageBucketConfig bucket, Capability capability, CapabilityStatus status, String detail)
    {
-      CACHE.put(scopeKey(bucket, capability), status);
+      String key = scopeKey(bucket, capability);
+      persist(bucket, capability, status, detail);
+      ClusterCaches.invalidateKey(CACHE_NAME, key);
+      CACHE.put(key, status);
+   }
+
+
+
+   /*******************************************************************************
+    ** Write one probe result to its capability row; never throws.
+    *******************************************************************************/
+   private static void persist(StorageBucketConfig bucket, Capability capability, CapabilityStatus status, String detail)
+   {
       if(!Db.available(ObjectStorageTables.BUCKET_CAPABILITY))
       {
          return;

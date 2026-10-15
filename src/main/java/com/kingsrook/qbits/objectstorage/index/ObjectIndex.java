@@ -43,6 +43,7 @@ import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.internal.Db;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
@@ -78,7 +79,8 @@ public final class ObjectIndex
 
    public static final int PAGE_SIZE = 1000;
 
-   private static final Set<String> RUNNING = java.util.concurrent.ConcurrentHashMap.newKeySet();
+   private static final Set<String> RUNNING = ClusterCaches.nodeLocal(java.util.concurrent.ConcurrentHashMap.newKeySet(),
+      "the buckets this node is scanning now (an in-flight guard, not cached data)");
 
    /** Test seam: simulate a crash after this many pages of a scan (so resume can be tested). */
    static volatile Integer failAfterPages = null;

@@ -26,6 +26,7 @@ import java.util.Map;
 import com.kingsrook.qbits.objectstorage.api.Capability;
 import com.kingsrook.qbits.objectstorage.api.CapabilityStatus;
 import com.kingsrook.qbits.objectstorage.config.ProviderType;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 import static com.kingsrook.qbits.objectstorage.api.CapabilityStatus.PARTIAL;
 import static com.kingsrook.qbits.objectstorage.api.CapabilityStatus.SUPPORTED;
 import static com.kingsrook.qbits.objectstorage.api.CapabilityStatus.UNKNOWN;
@@ -39,7 +40,8 @@ import static com.kingsrook.qbits.objectstorage.api.CapabilityStatus.UNSUPPORTED
  *******************************************************************************/
 public final class ProviderDefaults
 {
-   private static final Map<ProviderType, Map<Capability, CapabilityStatus>> TABLE = new EnumMap<>(ProviderType.class);
+   private static final Map<ProviderType, Map<Capability, CapabilityStatus>> TABLE = ClusterCaches.nodeLocal(new EnumMap<>(ProviderType.class),
+      "provider defaults from code, the same on every node");
 
    static
    {
