@@ -5,7 +5,8 @@ All notable changes to this project are documented here. The format follows Keep
 ## [0.1.0] - Unreleased
 
 ### Added
-- Every table explains itself: a help bundle (`help/qbit-object-storage.yaml`, QQQ help-bundle format) says what each `object_storage_*` table is for and how its rows get created; it shows on the table screen and when the table is empty. Applied by `ObjectStorageHelp` (STAND-IN for QRun-IO/qqq#1198); a host's own help is kept.
+- Expanded the host-neutral in-app help bundle to cover storage fields, actions, widgets and possible values, with live references and a `HelpBundleAssertions` coverage gate. Registered it for QQQ startup sync and HOST overrides; retained inline table/app help for hosts without help-content tables.
+- Every table explains itself: a help bundle (`help/qbit-object-storage.yaml`, QQQ help-bundle format) says what each `object_storage_*` table is for and how its rows get created; it shows on the table screen and when the table is empty. Applied inline by `ObjectStorageHelp` for hosts without help-content tables; a host's own help is kept.
 - A Setup card on the Storage home (connections, buckets, header rules, protection rules) with the state and next step of each, resolved the way the runtime resolves them.
 - A starter changelog `db/liquibase/qbit-object-storage/object-storage-defaults.changelog.sql`: a disabled `default-mutable` header rule. Insert-only, run through real Liquibase in `DefaultsChangelogTest`.
 - `ObjectStorageTablesGuardrailTest` (each table is used at runtime, seeded or explained, and has help).
@@ -24,9 +25,10 @@ All notable changes to this project are documented here. The format follows Keep
 - Conformance suite against MinIO and Garage (Testcontainers), service, index and action tests, and the index and actions on PostgreSQL.
 
 ### Changed
+- Raised the QQQ BOM baseline to released `4.1.0-RC.7` for the core help-bundle registry and coverage assertions.
 - Raised the QQQ BOM baseline to released `4.1.0-RC.5` and delegated S3 client construction to core `S3ClientFactory.buildClient`. Removed local HTTP client and trust-manager implementations; existing endpoint, region, addressing, checksum, TLS/CA, credentials and timeout settings remain supported.
 - Clients remain owned by each connection runtime and are rebuilt on reset/reinstall. Retry behavior now follows core/SDK defaults instead of forcing `ADAPTIVE_V2`; hosts can select the SDK retry mode through `AWS_RETRY_MODE` or `aws.retryMode`.
-- Retained local presigning (including a separate endpoint/key). A request-credentials bridge preserves static session tokens because RC.5 core metadata/factory has no session-token field or credentials-provider hook. This bridge and the existing `${file.PATH}` resolver are marked for removal by RC.7 under issue #10.
+- Retained local presigning (including a separate endpoint/key). A request-credentials bridge preserves static session tokens because RC.5 core metadata/factory has no session-token field or credentials-provider hook. This bridge and the existing `${file.PATH}` resolver remain necessary in released RC.7 (no session-token/provider hook or file-reference interpreter); their review deadline is now RC.8 under issue #10.
 - Added the filesystem module with its unused SFTP/SSH stack excluded. Resolved dependencies otherwise only change QQQ RC.4 to RC.5 and jsoup 1.23.1 to 1.23.2; see [dependency details](docs/S3-FACTORY-MIGRATION.md).
 
 ### Notes
