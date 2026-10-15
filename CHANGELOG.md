@@ -27,6 +27,7 @@ All notable changes to this project are documented here. The format follows Keep
 - Conformance suite against MinIO and Garage (Testcontainers), service, index and action tests, and the index and actions on PostgreSQL.
 
 ### Removed
+- The QRun-IO/qqq#1165 stand-ins: `SessionCredentialsClient` (session tokens now go through core `S3BackendMetaData.sessionToken` / `S3ClientFactory`, including for the presigner) and the file reading in `SecretRefs` (core `QMetaDataVariableInterpreter` resolves `${file.PATH}`). **Behavior change:** core reads `${file.PATH}` only inside its allowed roots, which are `/var/run/secrets` and `/run/secrets` by default. A host that mounts storage secrets elsewhere must set `qqq.fileReference.roots` or `QQQ_FILE_REFERENCE_ROOTS`. The qbit's default allow-list (`file./var/run/secrets/storage/*`) is already inside the default roots.
 - None for the health migration; both Test connection record actions, including on-demand write tests, are retained.
 
 ### Changed

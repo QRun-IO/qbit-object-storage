@@ -38,6 +38,7 @@ import com.kingsrook.qqq.backend.module.filesystem.s3.model.metadata.S3BackendMe
 import com.kingsrook.qqq.backend.module.filesystem.s3.model.metadata.S3ChecksumMode;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -59,8 +60,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ConnectionRuntimeTest
 {
    /*******************************************************************************
+    ** Core reads ${file.PATH} only inside its allowed roots; reference() points
+    ** them at each test's temporary directory.
+    *******************************************************************************/
+   @AfterEach
+   void afterEach()
+   {
+      System.clearProperty("qqq.fileReference.roots");
+   }
+
+
+
+   /*******************************************************************************
     ** Every core-supported setting is mapped after resolving references. Session
-    ** tokens and presign settings have no core fields and are exercised below.
+    ** tokens and presign settings are exercised below.
     *******************************************************************************/
    @Test
    void testBackendMetaDataCarriesEverySetting(@TempDir Path dir) throws Exception
@@ -199,8 +212,8 @@ class ConnectionRuntimeTest
 
 
    /*******************************************************************************
-    ** Session credentials sign streaming reads/writes and paginator requests.
-    ** Existing request headers survive the bridge's credentials override.
+    ** Session credentials (core sessionToken) sign streaming reads/writes and
+    ** paginator requests; request overrides are untouched.
     *******************************************************************************/
    @Test
    void testSessionSigningAndRequestOverrides(@TempDir Path dir) throws Exception
@@ -313,6 +326,7 @@ class ConnectionRuntimeTest
     *******************************************************************************/
    private static String reference(Path dir, String name, String value) throws Exception
    {
+      System.setProperty("qqq.fileReference.roots", dir.toString());
       Path file = dir.resolve(name);
       Files.writeString(file, value);
       return ("${file." + file + "}");

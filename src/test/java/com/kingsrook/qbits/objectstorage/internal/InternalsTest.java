@@ -83,10 +83,23 @@ class InternalsTest
       assertThat(SecretRefs.resolve(null)).isNull();
       assertThat(SecretRefs.resolveSetting("")).isNull();
 
+      //////////////////////////////////////////////////////////////////////
+      // core reads ${file.PATH} only inside its allowed roots (by default //
+      // /var/run/secrets and /run/secrets); point them at the temp dir.   //
+      //////////////////////////////////////////////////////////////////////
       Path file = dir.resolve("key");
       Files.writeString(file, "  from-file\n");
-      assertThat(SecretRefs.resolve("${file." + file + "}")).isEqualTo("from-file");
-      assertThat(SecretRefs.resolve("${file." + dir.resolve("missing") + "}")).isNull();
+      assertThat(SecretRefs.resolve("${file." + file + "}")).as("outside the allowed roots").isNull();
+      System.setProperty("qqq.fileReference.roots", dir.toString());
+      try
+      {
+         assertThat(SecretRefs.resolve("${file." + file + "}")).isEqualTo("from-file");
+         assertThat(SecretRefs.resolve("${file." + dir.resolve("missing") + "}")).isNull();
+      }
+      finally
+      {
+         System.clearProperty("qqq.fileReference.roots");
+      }
    }
 
 

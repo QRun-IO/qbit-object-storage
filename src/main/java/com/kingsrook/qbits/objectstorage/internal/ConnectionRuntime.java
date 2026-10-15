@@ -22,7 +22,6 @@ package com.kingsrook.qbits.objectstorage.internal;
 
 
 import java.net.URI;
-import java.util.function.Function;
 import com.kingsrook.qbits.objectstorage.config.AddressingStyle;
 import com.kingsrook.qbits.objectstorage.config.CredentialsMode;
 import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
@@ -30,17 +29,10 @@ import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.module.filesystem.s3.model.metadata.S3BackendMetaData;
 import com.kingsrook.qqq.backend.module.filesystem.s3.model.metadata.S3ChecksumMode;
 import com.kingsrook.qqq.backend.module.filesystem.s3.utils.S3ClientFactory;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.DelegatingS3Client;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.S3Request;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 
@@ -198,16 +190,7 @@ public class ConnectionRuntime
     *******************************************************************************/
    private S3Client buildClient()
    {
-      S3BackendMetaData backend = backendMetaData();
-      String token = config.getCredentialsMode() == CredentialsMode.STATIC_REFS ? SecretRefs.resolve(config.getSessionTokenRef()) : null;
-      AwsCredentialsProvider sessionCredentials = null;
-      if(token != null && backend.getAccessKey() != null && backend.getSecretKey() != null)
-      {
-         sessionCredentials = StaticCredentialsProvider.create(AwsSessionCredentials.create(backend.getAccessKey(), backend.getSecretKey(), token));
-      }
-
-      S3Client coreClient = S3ClientFactory.buildClient(backend);
-      return (sessionCredentials == null ? coreClient : new SessionCredentialsClient(coreClient, sessionCredentials));
+      return (S3ClientFactory.buildClient(backendMetaData()));
    }
 
 
@@ -229,8 +212,7 @@ public class ConnectionRuntime
          .withSocketTimeoutMillis(config.getReadTimeoutMs());
       if(config.getCredentialsMode() == CredentialsMode.STATIC_REFS)
       {
-         backend.withAccessKey(SecretRefs.resolve(config.getAccessKeyRef()))
-            .withSecretKey(SecretRefs.resolve(config.getSecretKeyRef()));
+         withStaticCredentials(backend, config.getAccessKeyRef(), config.getSecretKeyRef());
       }
       return (backend);
    }
@@ -270,63 +252,33 @@ public class ConnectionRuntime
 
 
    /*******************************************************************************
-    ** Static keys from the references, or the SDK default chain.
+    ** Static keys (with the session token, when set) from the references, or the
+    ** SDK default chain; core builds the provider.
     *******************************************************************************/
    private AwsCredentialsProvider credentials(String accessRef, String secretRef)
    {
+      S3BackendMetaData credentials = new S3BackendMetaData();
       if(config.getCredentialsMode() == CredentialsMode.STATIC_REFS)
       {
-         String accessKey = SecretRefs.resolve(accessRef);
-         String secretKey = SecretRefs.resolve(secretRef);
-         if(accessKey != null && secretKey != null)
-         {
-            String token = SecretRefs.resolve(config.getSessionTokenRef());
-            return (StaticCredentialsProvider.create(token == null ? AwsBasicCredentials.create(accessKey, secretKey)
-               : AwsSessionCredentials.create(accessKey, secretKey, token)));
-         }
+         withStaticCredentials(credentials, accessRef, secretRef);
       }
-      return (DefaultCredentialsProvider.builder().build());
+      return (S3ClientFactory.buildCredentialsProvider(credentials));
    }
 
 
 
    /*******************************************************************************
-    ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.9)
-    ** RC.8 S3BackendMetaData and S3ClientFactory still lack a session token or
-    ** credentials-provider hook (verified against the released JAR).
-    ** Override request credentials only; core still owns the client and transport.
+    ** Resolve static keys onto core meta data. The session token applies only
+    ** with both keys, as before (core rejects a token without keys).
     *******************************************************************************/
-   private static class SessionCredentialsClient extends DelegatingS3Client
+   private void withStaticCredentials(S3BackendMetaData backend, String accessRef, String secretRef)
    {
-      private final AwsCredentialsProvider credentialsProvider;
-
-
-
-      /*******************************************************************************
-       ** Wrap a core-built client with the connection's session credentials.
-       *******************************************************************************/
-      private SessionCredentialsClient(S3Client delegate, AwsCredentialsProvider credentialsProvider)
+      String accessKey = SecretRefs.resolve(accessRef);
+      String secretKey = SecretRefs.resolve(secretRef);
+      backend.withAccessKey(accessKey).withSecretKey(secretKey);
+      if(accessKey != null && secretKey != null)
       {
-         super(delegate);
-         this.credentialsProvider = credentialsProvider;
-      }
-
-
-
-      /*******************************************************************************
-       ** Preserve request overrides and the concrete request type while adding the
-       ** session token to signing, including streaming and paginated operations.
-       *******************************************************************************/
-      @Override
-      @SuppressWarnings("unchecked") // toBuilder().build() retains the concrete request type T.
-      protected <T extends S3Request, ReturnT> ReturnT invokeOperation(T request, Function<T, ReturnT> operation)
-      {
-         AwsRequestOverrideConfiguration.Builder overrides = request.overrideConfiguration()
-            .map(AwsRequestOverrideConfiguration::toBuilder).orElseGet(AwsRequestOverrideConfiguration::builder);
-         T signedRequest = (T) request.toBuilder()
-            .overrideConfiguration(overrides.credentialsProvider(credentialsProvider).build())
-            .build();
-         return (operation.apply(signedRequest));
+         backend.withSessionToken(SecretRefs.resolve(config.getSessionTokenRef()));
       }
    }
 }
