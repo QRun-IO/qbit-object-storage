@@ -30,6 +30,7 @@ import com.kingsrook.qbits.objectstorage.config.CredentialsMode;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.config.StorageConnectionConfig;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
@@ -48,10 +49,16 @@ public final class ConfigSync
 {
    private static final QLogger LOG = QLogger.getLogger(ConfigSync.class);
 
-   private static final Map<String, Integer> BUCKET_IDS     = new ConcurrentHashMap<>();
-   private static final Map<String, Integer> CONNECTION_IDS = new ConcurrentHashMap<>();
+   /** Cluster cache name of the bucket rows' presign limits (cleared on every node when a bucket row changes). */
+   public static final String ROW_LIMITS_CACHE_NAME = "qbit-object-storage.bucket-row-limits";
 
-   private static final Map<String, RowLimits> ROW_LIMITS = new ConcurrentHashMap<>();
+   private static final Map<String, Integer> BUCKET_IDS     = ClusterCaches.nodeLocal(new ConcurrentHashMap<>(),
+      "bucket alias to row id, written by the config sync; bucket rows cannot be inserted or deleted through the UI or API, so the ids are the same on every node");
+   private static final Map<String, Integer> CONNECTION_IDS = ClusterCaches.nodeLocal(new ConcurrentHashMap<>(),
+      "connection name to row id, written by the config sync; connection rows cannot be inserted or deleted through the UI or API, so the ids are the same on every node");
+
+   private static final Map<String, RowLimits> ROW_LIMITS = ClusterCaches.shared(ROW_LIMITS_CACHE_NAME, new ConcurrentHashMap<>(),
+      ConfigSync::clearRowLimits, alias -> ConfigSync.ROW_LIMITS.remove(alias));
    private static final long                 ROW_LIMIT_CACHE_MILLIS = 15_000L;
 
    private static volatile boolean synced = false;
@@ -313,7 +320,8 @@ public final class ConfigSync
 
 
    /*******************************************************************************
-    ** Forget the cached row limits (after a row edit in a test; they also expire).
+    ** Forget the cached row limits on this node (a bucket row edit clears them on
+    ** every node through ConfigRowChangeCustomizer; they also expire).
     *******************************************************************************/
    public static void clearRowLimits()
    {

@@ -23,12 +23,14 @@ package com.kingsrook.qbits.objectstorage.internal;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import com.kingsrook.qbits.objectstorage.api.ObjectHeaderPolicy;
 import com.kingsrook.qbits.objectstorage.api.ObjectHeaders;
 import com.kingsrook.qbits.objectstorage.config.BucketRole;
 import com.kingsrook.qbits.objectstorage.config.StorageBucketConfig;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
+import com.kingsrook.qqq.backend.core.cluster.ClusterCaches;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
@@ -44,19 +46,31 @@ public class DefaultObjectHeaderPolicy implements ObjectHeaderPolicy
 {
    private static final QLogger LOG = QLogger.getLogger(DefaultObjectHeaderPolicy.class);
 
+   /** Cluster cache name of the enabled header rules (cleared on every node when a rule changes). */
+   public static final String CACHE_NAME = "qbit-object-storage.header-rules";
+
    private static final long CACHE_MILLIS = 15_000L;
 
-   private static volatile List<QRecord> cachedRules;
-   private static volatile long          cachedAt;
+   private static final AtomicReference<CachedRules> CACHED = ClusterCaches.shared(CACHE_NAME, new AtomicReference<>(), DefaultObjectHeaderPolicy::clearCache, null);
 
 
 
    /*******************************************************************************
-    ** Drop cached rules (after the rules change).
+    ** The enabled rules and when they were read.
+    *******************************************************************************/
+   private record CachedRules(List<QRecord> rules, long readAt)
+   {
+   }
+
+
+
+   /*******************************************************************************
+    ** Drop the cached rules on this node (a rule edit clears them on every node
+    ** through ConfigRowChangeCustomizer).
     *******************************************************************************/
    public static void clearCache()
    {
-      cachedRules = null;
+      CACHED.set(null);
    }
 
 
@@ -119,11 +133,12 @@ public class DefaultObjectHeaderPolicy implements ObjectHeaderPolicy
     *******************************************************************************/
    private static List<QRecord> rules()
    {
-      List<QRecord> rules = cachedRules;
-      if(rules != null && System.currentTimeMillis() - cachedAt < CACHE_MILLIS)
+      CachedRules cached = CACHED.get();
+      if(cached != null && System.currentTimeMillis() - cached.readAt() < CACHE_MILLIS)
       {
-         return (rules);
+         return (cached.rules());
       }
+      List<QRecord> rules;
       if(!Db.available(ObjectStorageTables.HEADER_RULE))
       {
          return (List.of());
@@ -133,8 +148,7 @@ public class DefaultObjectHeaderPolicy implements ObjectHeaderPolicy
          rules = Db.asSystem(() -> Db.query(ObjectStorageTables.HEADER_RULE, "enabled", true));
          rules.sort(Comparator.comparing((QRecord r) -> r.getValueInteger("priority") == null ? 100 : r.getValueInteger("priority"))
             .thenComparing(r -> r.getValueInteger("id") == null ? 0 : r.getValueInteger("id")));
-         cachedRules = rules;
-         cachedAt = System.currentTimeMillis();
+         CACHED.set(new CachedRules(rules, System.currentTimeMillis()));
          return (rules);
       }
       catch(Exception e)
