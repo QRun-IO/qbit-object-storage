@@ -15,7 +15,7 @@ S3-compatible storage as a capability for any QQQ app, and an admin app to run i
 ## Requirements
 
 - Java 21.
-- QQQ `4.1.0-RC.5` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
+- QQQ `4.1.0-RC.8` (released BOM), including `qqq-backend-module-filesystem`. `ConnectionRuntime` maps connection settings to core's `S3BackendMetaData` and uses `S3ClientFactory.buildClient`; core owns HTTP, TLS and checksum setup. The unused SFTP/SSH dependency is excluded. See the [dependency diff](docs/S3-FACTORY-MIGRATION.md).
 - A QQQ backend for the qbit's tables (PostgreSQL is the intended store). `ObjectStorageSchema.postgresScript(config)` generates the DDL from the same metadata the app runs on, for your Liquibase or Flyway migration.
 
 ## Install
@@ -46,6 +46,20 @@ new ObjectStorageQBitProducer()
 Connections and buckets come from this code only. Secrets are **references** (`${env.X}`, `${prop.X}`, `${file.PATH}`) that must match `allowedSecretRefPatterns` (default `env.S3_*`, `env.STORAGE_*`, `file./var/run/secrets/storage/*`); no table stores a secret value. At startup the qbit upserts one `object_storage_connection` and one `object_storage_bucket` row per entry, so the tables always show the real configuration.
 
 Client settings take effect when the qbit configuration is reinstalled or the runtime is reset. Presigning keeps its separate public endpoint and credentials. Retry behavior now follows core/SDK defaults; hosts requiring adaptive retries can set `AWS_RETRY_MODE=adaptive` or `aws.retryMode=adaptive`. Static session tokens remain supported through a small local bridge pending core support.
+
+## In-app help
+
+The producer registers [help/qbit-object-storage.yaml](src/main/resources/help/qbit-object-storage.yaml)
+as a `QBIT` bundle. QQQ syncs it when the host has the help-content tables installed;
+registration is safe without them, and inline table/app help still explains empty lists.
+The bundle version is the literal POM version; update both when releasing.
+
+Hosts can register their own `layer: HOST` bundle with `HelpBundles.register(qInstance, "help/my-host.yaml")`.
+Use the same entry key and role to override qbit text, keeping live `{{...}}` references where useful.
+Hosts that rename the optional Storage app should provide an app entry for their configured name.
+`ObjectStorageHelpBundleTest` checks all owned tables, fields, processes, apps, widgets and
+possible-value sources using `HelpBundleAssertions`, including valid keys, live references and
+plain summaries of at most 120 characters. It runs with `./mvnw verify`.
 
 ## Use
 
@@ -92,6 +106,18 @@ contain only problem kind, clock skew seconds and bucket count.
 Turn a connection's check off or change its interval in the central `health_check`
 table. Both **Test connection** record actions remain available, including
 on-demand write tests.
+
+## Setup and starter defaults
+
+The Storage home has a **Setup** card: connections and buckets (declared in code, synced into their tables), header rules, and protection rules, each with its state and next step. Every table has help (`help/qbit-object-storage.yaml`) saying what it is for and how its rows get created, which also shows when the table is empty.
+
+The jar ships one optional seed changelog. After the changesets that create the tables (the script from `ObjectStorageSchema.postgresScript`), include it from your master changelog:
+
+```yaml
+- include: { file: db/liquibase/qbit-object-storage/object-storage-defaults.changelog.sql }
+```
+
+It is insert-only and inserts a **disabled** generic header rule, `default-mutable` (every key, `public, max-age=3600`, priority 1000), so nothing changes on deploy: enable and edit it when you want it. Edits survive re-runs. Protection rules are not seeded (a rule needs a bucket). Presign limits on the bucket row are read at runtime: `maxPresignGetSeconds` and `maxPresignPutSeconds` on the bucket row can lower the code config limits (the effective limit is the smaller of the two, cached up to 15 seconds); the row cannot raise them. `object_storage_object_version` is reserved and not used yet.
 
 ## Deployment notes
 

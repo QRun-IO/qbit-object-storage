@@ -95,6 +95,7 @@ public final class StorageHome
          LocalDate.ofInstant(now, ZoneOffset.UTC).minusDays(30))).withOrderBy(new com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterOrderBy("snapshotDate")));
 
       StringBuilder html = new StringBuilder("<div class=\"object-storage-home\" style=\"" + WRAP + "\">");
+      setupSection(html, tablePathPrefix);
       bucketsSection(html, buckets, connections, caps, tablePathPrefix);
       healthSection(html, buckets, tablePathPrefix);
       recentSection(html, operations, tablePathPrefix);
@@ -112,6 +113,22 @@ public final class StorageHome
    private static List<QRecord> query(String table, QQueryFilter filter) throws QException
    {
       return (new QueryAction().execute(new QueryInput(table).withFilter(filter)).getRecords());
+   }
+
+
+
+   /*******************************************************************************
+    ** 0. Setup: each configuration table, its state and the next step.
+    *******************************************************************************/
+   private static void setupSection(StringBuilder html, String prefix) throws QException
+   {
+      open(html, "Setup");
+      for(StorageSetupStatus.Step step : StorageSetupStatus.load())
+      {
+         html.append("<div style=\"").append(ROW).append("\"><strong><a href=\"").append(esc(prefix + "/" + step.table())).append("\">").append(esc(step.label())).append("</a></strong>: ")
+            .append(esc(step.state())).append(". <span style=\"").append(MUTED).append("\">").append(esc(step.next())).append("</span></div>");
+      }
+      close(html);
    }
 
 

@@ -36,7 +36,8 @@ import com.kingsrook.qqq.backend.core.utils.StringUtils;
  ** the allow-list. Resolved values live only in memory, never in a record, a log
  ** line or a process value.
  **
- ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.7)
+ ** STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.9)
+ ** RC.8 QMetaDataVariableInterpreter still supports env/prop, not file references.
  ** ${file.PATH} moves to QMetaDataVariableInterpreter in QQQ core
  ** (spec section 8.2); then this class delegates entirely.
  *******************************************************************************/

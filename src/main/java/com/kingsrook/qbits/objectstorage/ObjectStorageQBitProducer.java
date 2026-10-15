@@ -28,6 +28,7 @@ import com.kingsrook.qbits.objectstorage.health.ObjectStorageConnectionChecks;
 import com.kingsrook.qbits.objectstorage.internal.ConfigSync;
 import com.kingsrook.qbits.objectstorage.internal.DefaultObjectHeaderPolicy;
 import com.kingsrook.qbits.objectstorage.internal.ObjectStorageRuntime;
+import com.kingsrook.qbits.objectstorage.model.ObjectStorageHelp;
 import com.kingsrook.qbits.objectstorage.model.ObjectStorageTables;
 import com.kingsrook.qbits.objectstorage.processes.ObjectStorageProcesses;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
@@ -37,6 +38,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerMultiOutput
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.help.bundles.HelpBundles;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
@@ -200,6 +202,9 @@ public class ObjectStorageQBitProducer implements QBitMetaDataProducer<ObjectSto
          ///////////////////////////////////////////////////////////////////////////////
          qInstance.getApp(qBitConfig.getParentAppName()).withChild(qInstance.getApp(qBitConfig.getAppName()));
       }
+      // Registration is metadata-only; core skips startup sync without a helpContent table.
+      HelpBundles.register(qInstance, "help/qbit-object-storage.yaml");
+      ObjectStorageHelp.apply(qInstance, qBitConfig);
       return (new MetaDataProducerMultiOutput());
    }
 }

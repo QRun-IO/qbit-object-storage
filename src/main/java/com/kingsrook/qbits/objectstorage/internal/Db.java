@@ -40,8 +40,8 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
 import com.kingsrook.qqq.backend.core.model.actions.tables.update.UpdateInput;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
-import com.kingsrook.qqq.backend.core.model.metadata.security.QSecurityKeyType;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
+import com.kingsrook.qqq.backend.core.model.session.QSystemUserSession;
 
 
 /*******************************************************************************
@@ -131,30 +131,15 @@ public final class Db
 
 
    /*******************************************************************************
-    ** A session that holds every permission and every all-access security key of
-    ** the given instance (computed per instance, never cached across instances).
+    ** The core system-user session (every permission and every all-access
+    ** security key of the given instance, read per instance). It must be a
+    ** QSystemUserSession: token-based authentication modules (OAuth2, Auth0)
+    ** accept that class without a token and reject any other tokenless session,
+    ** which made every system read and write fail on such hosts.
     *******************************************************************************/
    private static QSession systemSession(QInstance instance)
    {
-      QSession session = new QSession()
-      {
-         /*******************************************************************************
-          ** The system user holds every permission.
-          *******************************************************************************/
-         @Override
-         public boolean hasPermission(String permissionName)
-         {
-            return (true);
-         }
-      };
-      for(QSecurityKeyType keyType : instance.getSecurityKeyTypes().values())
-      {
-         if(keyType.getAllAccessKeyName() != null)
-         {
-            session.withSecurityKeyValue(keyType.getAllAccessKeyName(), true);
-         }
-      }
-      return (session);
+      return (new QSystemUserSession(instance));
    }
 
 
