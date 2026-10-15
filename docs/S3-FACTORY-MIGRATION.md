@@ -26,16 +26,21 @@ The public qbit configuration API is unchanged.
 
 ## Remaining local code
 
-- Core RC.5 has no session-token field or credentials-provider customization
-  in `S3BackendMetaData` / `S3ClientFactory.buildClient`. The narrow
-  `SessionCredentialsClient` bridge adds session credentials to requests while
-  retaining their overrides; core still creates the client and HTTP transport.
-  Core needs session-token metadata (including enrichment and cache-key support)
-  and `AwsSessionCredentials` construction, or a caller-provided credentials hook.
-  Marker: `STAND-IN(core=QRun-IO/qqq#1165, removeBy=4.1.0-RC.7)`.
-- Core has no presigner factory. The local presigner retains its separate public
-  endpoint and least-privilege keys, along with existing session-token handling.
-- `SecretRefs` file resolution is unchanged and carries the same RC.7 marker.
+- Core has no presigner factory. The local presigner keeps its separate public
+  endpoint and least-privilege keys; its credentials (including the session
+  token) come from core `S3ClientFactory.buildCredentialsProvider`.
+- `SecretRefs` keeps only the qbit's allow-list; resolution, including
+  `${file.PATH}`, is core `QMetaDataVariableInterpreter`.
+
+## Stand-ins removed (QRun-IO/qqq#1165)
+
+- `SessionCredentialsClient` is gone: core `S3BackendMetaData.sessionToken`
+  makes `S3ClientFactory` sign with `AwsSessionCredentials`.
+- `SecretRefs` no longer reads files itself. Core reads `${file.PATH}`
+  read-only, and only inside its allowed roots: `/var/run/secrets` and
+  `/run/secrets` by default, or `qqq.fileReference.roots` /
+  `QQQ_FILE_REFERENCE_ROOTS` (comma-separated). The qbit's default allow-list
+  (`file./var/run/secrets/storage/*`) is inside the default roots.
 
 ## Resolved dependency diff
 
