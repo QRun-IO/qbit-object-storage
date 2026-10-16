@@ -106,16 +106,12 @@ public final class StorageWidgets
 
 
    /*******************************************************************************
-    ** The prefix of table and record links.
+    ** The prefix of table and record links: /app, so a link is /app/<tableName>
+    ** (the frontend serves every table, in any app, at that one flat route).
     *******************************************************************************/
    public static String tablePathPrefix()
    {
-      if(!ObjectStorageRuntime.isInstalled())
-      {
-         return ("/objectStorageAdmin");
-      }
-      ObjectStorageQBitConfig config = ObjectStorageRuntime.getConfig();
-      return (config.getParentAppName() == null ? "/" + config.getAppName() : "/" + config.getParentAppName() + "/" + config.getAppName());
+      return (ObjectStorageRuntime.isInstalled() ? ObjectStorageRuntime.getConfig().getTablePathPrefix() : "/app");
    }
 
 

@@ -62,6 +62,7 @@ public class ObjectStorageQBitConfig implements QBitConfig
    private String appName = "objectStorageAdmin";
    private String appLabel = "Storage";
    private String parentAppName;
+   private String tablePathPrefix;
    private List<String> allowedSecretRefPatterns = new ArrayList<>(SecretRefs.DEFAULT_ALLOWED_PATTERNS);
    private Integer bulkCap = 10_000;
    private Boolean bucketScoping = true;
@@ -420,6 +421,39 @@ public class ObjectStorageQBitConfig implements QBitConfig
    public ObjectStorageQBitConfig withParentAppName(String parentAppName)
    {
       this.parentAppName = parentAppName;
+      return (this);
+   }
+
+
+
+   /********************************************************************************
+    ** Getter for tablePathPrefix: the front of the links the Storage home makes to
+    ** tables and records.  Defaults to /app, the route every QQQ frontend serves
+    ** tables at (/app/<tableName>).
+    *******************************************************************************/
+   public String getTablePathPrefix()
+   {
+      return (this.tablePathPrefix == null ? "/app" : this.tablePathPrefix);
+   }
+
+
+
+   /********************************************************************************
+    ** Setter for tablePathPrefix.
+    *******************************************************************************/
+   public void setTablePathPrefix(String tablePathPrefix)
+   {
+      this.tablePathPrefix = tablePathPrefix;
+   }
+
+
+
+   /********************************************************************************
+    ** Fluent setter for tablePathPrefix.
+    *******************************************************************************/
+   public ObjectStorageQBitConfig withTablePathPrefix(String tablePathPrefix)
+   {
+      this.tablePathPrefix = tablePathPrefix;
       return (this);
    }
 
