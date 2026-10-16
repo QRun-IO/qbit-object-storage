@@ -574,4 +574,40 @@ class MinioIndexTest
          .contains("Usage trend").contains("collecting since")
          .contains("Connections").contains("Never tested");
    }
+
+   /*******************************************************************************
+    ** Every link the home emits is a /app/<table>[...] route that the Next frontend
+    ** resolves, never an /<appName>/<table> path, with data and without.
+    *******************************************************************************/
+   @Test
+   void everyHomeLinkUsesTheAppRoute() throws Exception
+   {
+      String prefix = com.kingsrook.qbits.objectstorage.app.StorageWidgets.tablePathPrefix();
+      assertThat(prefix).isEqualTo("/app");
+      java.util.List<String> hrefs = new java.util.ArrayList<>(hrefs(com.kingsrook.qbits.objectstorage.app.StorageHome.render(prefix, Instant.now())));
+
+      rawPut(target.indexBucket, "media/1/a.jpg", 2048);
+      rawPut(target.indexBucket, "media/9/orphan.jpg", 1024);
+      ObjectIndex.scan("indexed");
+      ObjectIndex.headBacklog("indexed", 10);
+      ReferenceScan.run("indexed");
+      ObjectStorage.bucket("indexed").put(PutRequest.of("media/1/c.jpg", new byte[3]));
+      hrefs.addAll(hrefs(com.kingsrook.qbits.objectstorage.app.StorageHome.render(prefix, Instant.now())));
+
+      assertThat(hrefs).isNotEmpty().allSatisfy(href -> assertThat(href).startsWith("/app/"));
+      assertThat(hrefs).noneMatch(href -> href.contains("objectStorageAdmin"));
+   }
+
+
+
+   private static java.util.List<String> hrefs(String html)
+   {
+      java.util.List<String> hrefs = new java.util.ArrayList<>();
+      java.util.regex.Matcher m = java.util.regex.Pattern.compile("href=\"([^\"]*)\"").matcher(html);
+      while(m.find())
+      {
+         hrefs.add(m.group(1).replace("&amp;", "&"));
+      }
+      return (hrefs);
+   }
 }
