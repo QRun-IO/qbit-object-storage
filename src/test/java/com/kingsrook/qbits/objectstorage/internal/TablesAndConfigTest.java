@@ -205,7 +205,7 @@ class TablesAndConfigTest
       new com.kingsrook.qbits.objectstorage.ObjectStorageQBitProducer().withQBitConfig(config).produce(instance);
       assertThat(instance.getApp("objectStorageAdmin").getParentAppName()).isEqualTo("admin");
       assertThat(instance.getApp("admin").getChildren()).extracting(c -> c.getName()).contains("objectStorageAdmin");
-      assertThat(com.kingsrook.qbits.objectstorage.app.StorageWidgets.tablePathPrefix()).isEqualTo("/admin/objectStorageAdmin");
+      assertThat(com.kingsrook.qbits.objectstorage.app.StorageWidgets.tablePathPrefix()).isEqualTo("/app");
    }
 
 
