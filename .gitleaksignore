@@ -1,0 +1,6 @@
+
+# Reviewed historical unit-test redaction canaries and isolated container fixture credentials.
+# Exact commit/file/rule/line fingerprints only; future findings remain blocking.
+63c441e6cd0a1785199b97b424a0a28d77aac3ff:src/test/java/com/kingsrook/qbits/objectstorage/health/ObjectStorageConnectionChecksTest.java:generic-api-key:78
+18ffbf1e75c588a45671a549500f971b36512b11:src/test/java/com/kingsrook/qbits/objectstorage/conformance/Targets.java:generic-api-key:162
+18ffbf1e75c588a45671a549500f971b36512b11:src/test/java/com/kingsrook/qbits/objectstorage/conformance/Targets.java:generic-api-key:180
